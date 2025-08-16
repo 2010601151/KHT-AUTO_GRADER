@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Slide + Bounce Login + Floating Mobile Login Left) ----------
+# ---------- app.py (Fixed Professional Update, Slide + Bounce Login + Floating Mobile Login Left) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -115,15 +115,16 @@ st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_h
 if os.path.exists("kht_logo.jpeg"):
     st.image("kht_logo.jpeg", width=140)
 
-# ---------- Authentication & Floating Login Fix ----------
+# ---------- Authentication ----------
 VALID_TEACHER_PASSWORD = "kht2025"
 
-# Initialize session state
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
+if "trigger_rerun" not in st.session_state:
+    st.session_state.trigger_rerun = False
 
-# ---------- Floating Mobile Login Button ----------
+# ---------- Floating Mobile Login ----------
 if not st.session_state.authenticated:
     st.markdown("""
     <div class="floating-login" onclick="document.getElementById('sidebar-login').click();">
@@ -147,8 +148,8 @@ if not st.session_state.authenticated:
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
+            st.session_state.trigger_rerun = True
             st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-            st.experimental_rerun()  # Safely rerun after login
         else:
             st.sidebar.markdown("<p class='notification'>❌ Incorrect password.</p>", unsafe_allow_html=True)
     
@@ -159,7 +160,12 @@ if not st.session_state.authenticated:
 if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated = False
     st.session_state.role = None
-    st.experimental_rerun()  # Safely rerun after logout
+    st.session_state.trigger_rerun = True
+
+# ---------- Safe Rerun ----------
+if st.session_state.trigger_rerun:
+    st.session_state.trigger_rerun = False
+    st.experimental_rerun()
 
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
@@ -195,9 +201,9 @@ def color_rows(val):
     else: color = '#f8d7da'
     return f'background-color: {color}'
 
+# ---------- Pages Implementation ----------
 
-
-# ---------- Page: Upload Answer Key ----------
+# Upload Answer Key
 if page == "📥 Upload Answer Key":
     st.subheader("Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader("Upload Answer Key", type=["txt", "jpg", "jpeg", "png"])
@@ -207,7 +213,7 @@ if page == "📥 Upload Answer Key":
         st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
-# ---------- Page: Upload & Grade ----------
+# Upload & Grade Student Exam
 if page == "📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exam for Grading")
     model_answer = load_answer_key()
@@ -259,7 +265,7 @@ if page == "📤 Upload & Grade Student Exam":
                 df.to_csv(save_path, index=False)
                 st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
 
-# ---------- Page: Search Results ----------
+# Search Results
 if page == "🔍 Search Results (ID or Name)":
     st.subheader("Search Student Results")
     department = st.text_input("Department to Search", value="General").strip().replace("/", "-")
@@ -279,7 +285,7 @@ if page == "🔍 Search Results (ID or Name)":
     else:
         st.markdown("<p class='notification'>No results found. Upload student exams first.</p>", unsafe_allow_html=True)
 
-# ---------- Page: Dashboard ----------
+# Dashboard
 if page == "📊 View Dashboard":
     st.subheader("Department/Subject Dashboard")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
@@ -291,7 +297,7 @@ if page == "📊 View Dashboard":
     else:
         st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
 
-# ---------- Page: Analytics ----------
+# Analytics
 if page == "📈 Analytics":
     st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
     department = st.text_input("Department", value="General").strip().replace("/", "-")
@@ -338,6 +344,3 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
-
-
-
