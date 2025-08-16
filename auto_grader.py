@@ -1,14 +1,24 @@
-﻿# ---------- auto_grader.py (Final Version) ----------
+# ---------- auto_grader.py (Fixed & Debug Version) ----------
+import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 
+# ✅ Ensure Hugging Face cache is stored in a persistent folder on Streamlit Cloud
+os.environ['HF_HOME'] = '/mount/src/.cache/huggingface'
+
 # ✅ Load SBERT model for semantic grading
 @st.cache_resource(show_spinner="🔍 Loading AI model for grading...")
 def load_sbert_model():
-    return SentenceTransformer('all-MiniLM-L6-v2')
+    try:
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        st.success("✅ SBERT model loaded successfully!")
+        return model
+    except Exception as e:
+        st.error(f"⚠️ Failed to load SBERT model: {str(e)}")
+        return None  # Fallback if model fails to load
 
 sbert_model = load_sbert_model()
 
@@ -54,13 +64,17 @@ def grade_with_answer_key(answer_key_text, student_answer_text):
                 correct_count += 1
                 feedback_list.append(f"Q{i+1}: ✅ Correct")
             else:
-                # For short/long answers: semantic similarity
-                score, _ = grade_answer_bert(correct_answer, student_ans)
-                if score >= 80:
-                    correct_count += 1
-                    feedback_list.append(f"Q{i+1}: ⚠️ Partially Correct (Similarity: {score}%)")
+                # For short/long answers: semantic similarity (only if model loaded)
+                if sbert_model:
+                    score, _ = grade_answer_bert(correct_answer, student_ans)
+                    st.write(f"Debug: Q{i+1} similarity = {score}%")  # 🔍 Debug output
+                    if score >= 80:
+                        correct_count += 1
+                        feedback_list.append(f"Q{i+1}: ⚠️ Partially Correct (Similarity: {score}%)")
+                    else:
+                        feedback_list.append(f"Q{i+1}: ❌ Incorrect (Expected: {correct_answer})")
                 else:
-                    feedback_list.append(f"Q{i+1}: ❌ Incorrect (Expected: {correct_answer})")
+                    feedback_list.append(f"Q{i+1}: ❌ Incorrect (Model unavailable)")
         else:
             feedback_list.append(f"Q{i+1}: ❌ No answer provided")
 
