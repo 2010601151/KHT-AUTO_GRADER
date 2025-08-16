@@ -231,16 +231,17 @@ if page == "📈 Analytics":
                                     labels={"Score":"Score (%)"}, 
                                     color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
+# ---------- Average Score Metric ----------
+avg_score = df['Score'].mean()
+max_score = df['Score'].max()
+min_score = df['Score'].min()
+st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
 
-            # Average Score Metric
-            avg_score = df['Score'].mean()
-            max_score = df['Score'].max()
-            min_score = df['Score'].min()
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Average Score", f"{avg_score:.2f}%")
-            col2.metric("Highest Score", f"{max_score}%")
-            col3.metric("Lowest Score", f"{min_score}%")
+col1, col2, col3 = st.columns(3)
+col1.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Average Score<br>{avg_score:.2f}%</p>", unsafe_allow_html=True)
+col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
+col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
+
 
             # Scores Over Time
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
@@ -267,3 +268,4 @@ if page == "📈 Analytics":
 
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
