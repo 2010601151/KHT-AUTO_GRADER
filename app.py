@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update) ----------
+# ---------- app.py (Professional Update, Fixed Indentation) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -55,13 +55,15 @@ if not st.session_state.authenticated:
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-          st.sidebar.markdown(
-    "<p style='color:#28a745; font-weight:bold; font-size:16px;'>Login successful!</p>",
-    unsafe_allow_html=True
-)
-
+            st.sidebar.markdown(
+                "<p style='color:#28a745; font-weight:bold; font-size:16px;'>Login successful!</p>",
+                unsafe_allow_html=True
+            )
         else:
-            st.sidebar.markdown("<p class='notification'>Incorrect password.</p>", unsafe_allow_html=True)
+            st.sidebar.markdown(
+                "<p class='notification'>Incorrect password.</p>",
+                unsafe_allow_html=True
+            )
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
@@ -204,6 +206,7 @@ if page == "📊 View Dashboard":
         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
+
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
     st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
