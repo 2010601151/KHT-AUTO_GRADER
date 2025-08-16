@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Fixed Indentation) ----------
+# ---------- app.py (Professional Update, Animated Login) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -11,13 +11,46 @@ from auto_grader import grade_with_answer_key
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- Theme ----------
+# ---------- Theme & Sidebar Animation ----------
 st.markdown("""
 <style>
     .stApp { background-color: #ffffff; color:#000000; }
-    section[data-testid="stSidebar"] { background-color: #6a1b9a; transform: translateX(-10%); transition: transform 0.3s ease-in-out; }
-    section[data-testid="stSidebar"]:hover { transform: translateX(0%); }
+
+    /* Sidebar slide-in */
+    section[data-testid="stSidebar"] {
+        background-color: #6a1b9a;
+        transform: translateX(-100%);
+        transition: transform 0.4s ease-in-out;
+        padding-top: 2rem;
+    }
+    section[data-testid="stSidebar"]:hover {
+        transform: translateX(0%);
+    }
     section[data-testid="stSidebar"] * { color: white !important; }
+
+    /* Login card styling */
+    .login-card {
+        background-color: #ffffff;
+        color: #000000;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+        max-width: 280px;
+        margin: auto;
+        transition: transform 0.3s ease;
+    }
+    .login-card:hover { transform: scale(1.02); }
+
+    /* Notification animation */
+    .notification {
+        color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
+        animation: fadeIn 0.6s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from {opacity:0; transform: translateY(-10px);}
+        to {opacity:1; transform: translateY(0);}
+    }
+
     h1, h2, h3, h4 { color: #000000; font-weight: bold; }
     div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
     div.stButton > button:hover { background-color: #4a0072; color: white; }
@@ -32,7 +65,6 @@ st.markdown("""
     .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
-    .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,21 +82,17 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 if not st.session_state.authenticated:
+    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
     st.sidebar.subheader("🔐 Teacher Login Required")
     password = st.sidebar.text_input("Enter Teacher Password", type="password")
     if st.sidebar.button("Login"):
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.sidebar.markdown(
-                "<p style='color:#28a745; font-weight:bold; font-size:16px;'>Login successful!</p>",
-                unsafe_allow_html=True
-            )
+            st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
         else:
-            st.sidebar.markdown(
-                "<p class='notification'>Incorrect password.</p>",
-                unsafe_allow_html=True
-            )
+            st.sidebar.markdown("<p class='notification'>❌ Incorrect password.</p>", unsafe_allow_html=True)
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
@@ -103,12 +131,9 @@ def extract_text_from_image(image):
 
 # ---------- Color Score Rows ----------
 def color_rows(val):
-    if val >= 85: 
-        color = '#d4edda'
-    elif val >= 60: 
-        color = '#fff3cd'
-    else: 
-        color = '#f8d7da'
+    if val >= 85: color = '#d4edda'
+    elif val >= 60: color = '#fff3cd'
+    else: color = '#f8d7da'
     return f'background-color: {color}'
 
 # ---------- Page 1: Upload Answer Key ----------
@@ -214,7 +239,6 @@ if page == "📊 View Dashboard":
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
     st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
-
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
@@ -226,15 +250,11 @@ if page == "📈 Analytics":
         else:
             import plotly.express as px
 
-            # Score Distribution Histogram
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
-            fig_dist = px.histogram(df, x="Score", nbins=10, 
-                                    title="Score Distribution", 
-                                    labels={"Score":"Score (%)"}, 
-                                    color_discrete_sequence=["#6a1b9a"])
+            fig_dist = px.histogram(df, x="Score", nbins=10, title="Score Distribution", labels={"Score":"Score (%)"}, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
 
-            # ---------- Average Score Metric (Bold Black) ----------
+            # Key Metrics
             avg_score = df['Score'].mean()
             max_score = df['Score'].max()
             min_score = df['Score'].min()
@@ -244,31 +264,23 @@ if page == "📈 Analytics":
             col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
             col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
 
-            # Scores Over Time
+            # Score Trend
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
             df['Timestamp'] = pd.to_datetime(df['Timestamp'])
             df_sorted = df.sort_values('Timestamp')
-            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', 
-                                title="Student Scores Over Time", 
-                                markers=True, color_discrete_sequence=["#6a1b9a"])
+            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', title="Student Scores Over Time", markers=True, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_trend, use_container_width=True)
 
             # Pass/Fail Pie Chart
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
             pass_threshold = 50
             df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
-            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', 
-                             color='Result', 
-                             color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
+            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', color='Result', color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
             st.plotly_chart(fig_pie, use_container_width=True)
 
-            # Top Performers Leaderboard
+            # Top Performers
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
             top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
             st.table(top_df.reset_index(drop=True))
-
     else:
-        st.markdown(
-            "<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>",
-            unsafe_allow_html=True
-        )
+        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
