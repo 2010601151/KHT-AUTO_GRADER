@@ -14,13 +14,13 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- Theme ----------
 st.markdown("""
 <style>
-    .stApp { background-color: #ffffff; color: #000000; }
+    .stApp { background-color: #ffffff; color:#4a0072; }
     section[data-testid="stSidebar"] { background-color: #6a1b9a; }
     section[data-testid="stSidebar"] * { color: white !important; }
     h1, h2, h3, h4 { color: #000000; font-weight: bold; }
     div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
     div.stButton > button:hover { background-color: #4a0072; color: white; }
-    input, textarea, select { border: 1px solid #6a1b9a !important; color: #000000 !important; font-weight:bold; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #ffffff !important; font-weight:bold; }
     label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
     table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
     thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
@@ -203,5 +203,61 @@ if page == "📊 View Dashboard":
 
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
-    st.subheader("Analytics Overview")
-    st.markdown("<p class='notification'>Analytics coming soon. This page will show score distribution, trends, and performance charts.</p>", unsafe_allow_html=True)
+    st.subheader("📊 Analytics Overview")
+
+    # Select Department & Subject
+    department = st.text_input("Department", value="General").strip().replace("/", "-")
+    subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+    analytics_path = f"results/{department}/{subject}/results.csv"
+
+    if os.path.exists(analytics_path):
+        df = pd.read_csv(analytics_path)
+
+        if df.empty:
+            st.warning("No student results yet for this department/subject.")
+        else:
+            import plotly.express as px
+
+            # Score Distribution Histogram
+            st.markdown("### Score Distribution")
+            fig_dist = px.histogram(df, x="Score", nbins=10, 
+                                    title="Score Distribution", 
+                                    labels={"Score":"Score (%)"}, 
+                                    color_discrete_sequence=["#6a1b9a"])
+            st.plotly_chart(fig_dist, use_container_width=True)
+
+            # Average Score Metric
+            avg_score = df['Score'].mean()
+            max_score = df['Score'].max()
+            min_score = df['Score'].min()
+            st.markdown("### Key Metrics")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Average Score", f"{avg_score:.2f}%")
+            col2.metric("Highest Score", f"{max_score}%")
+            col3.metric("Lowest Score", f"{min_score}%")
+
+            # Scores Over Time
+            st.markdown("### Score Trend Over Time")
+            df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+            df_sorted = df.sort_values('Timestamp')
+            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', 
+                                title="Student Scores Over Time", 
+                                markers=True, color_discrete_sequence=["#6a1b9a"])
+            st.plotly_chart(fig_trend, use_container_width=True)
+
+            # Pass/Fail Pie Chart
+            st.markdown("### Pass / Fail Breakdown")
+            pass_threshold = 50
+            df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
+            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', 
+                             color='Result', 
+                             color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+            # Top Performers Leaderboard
+            st.markdown("### Top Performers")
+            top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
+            st.table(top_df.reset_index(drop=True))
+
+    else:
+        st.info("No results available for this department/subject yet. Upload and grade exams first.")
