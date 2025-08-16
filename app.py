@@ -1,4 +1,4 @@
-# ---------- app.py (Streamlit Cloud–Ready Version) ----------
+# ---------- app.py (Cloud + Inline Grading Debug Version) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -86,7 +86,6 @@ def save_answer_key(text):
 
 # ---------- OCR Helper ----------
 def extract_text_from_image(image):
-    # Cloud-installed Tesseract will be detected automatically
     return pytesseract.image_to_string(image)
 
 # ---------- Function to Color Score Rows ----------
@@ -133,10 +132,16 @@ if page == "📤 Upload & Grade Student Exam":
         st.text_area("Extracted Student Answer", value=student_answer, height=200)
 
         if st.button("Grade Answer"):
+            # ---------------- Grading ----------------
             score, feedback = grade_with_answer_key(model_answer, student_answer)
             st.success(f"Final Score: {score}%")
-            st.info(f"Detailed Feedback:\n{feedback}")
+            
+            # Show inline debug scores from semantic grading
+            st.markdown("### Detailed Feedback with Semantic Similarity")
+            for line in feedback.split("\n"):
+                st.text(line)
 
+            # ---------------- Save Result ----------------
             result = {
                 "Student ID": student_id,
                 "Name": student_name,
@@ -160,8 +165,7 @@ if page == "📤 Upload & Grade Student Exam":
             df.to_csv(save_path, index=False)
             st.success("Result saved to dashboard!")
 
-# ---------- Page 3, 4, 5 remain unchanged ----------
-# (Search, Dashboard, Analytics pages work exactly as in your previous app.py)
+# ---------- Pages 3, 4, 5 remain unchanged (Search, Dashboard, Analytics) ----------
 
 # ---------- Footer ----------
 st.markdown(
