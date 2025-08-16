@@ -7,6 +7,65 @@ from datetime import datetime
 import io
 from openpyxl import Workbook
 import plotly.express as px
+# ---------- Custom CSS ----------
+st.markdown("""
+<style>
+    .stApp { background-color: #ffffff; color:#000000; }
+
+    /* Sidebar fixed background */
+    section[data-testid="stSidebar"] {
+        background-color: #6a1b9a;
+        padding-top: 2rem;
+    }
+    section[data-testid="stSidebar"] * { color: white !important; }
+
+    /* Centered login card with slide-in + bounce */
+    .login-card {
+        background-color: #ffffff;
+        color: #000000;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+        max-width: 280px;
+        margin: 2rem auto;
+        transform: translateX(-150%);
+        opacity: 0;
+        animation: slideBounce 0.8s forwards ease-out;
+    }
+
+    @keyframes slideBounce {
+        0% { transform: translateX(-150%); opacity: 0; }
+        70% { transform: translateX(10px); opacity: 1; }
+        100% { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Notification animation */
+    .notification {
+        color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
+        animation: fadeIn 0.6s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from {opacity:0; transform: translateY(-10px);}
+        to {opacity:1; transform: translateY(0);}
+    }
+
+    h1, h2, h3, h4 { color: #000000; font-weight: bold; }
+    div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
+    div.stButton > button:hover { background-color: #4a0072; color: white; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #000000 !important; font-weight:bold; }
+    label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
+    table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
+    thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
+    tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
+    tbody tr:nth-child(even) { background-color: #ffffff !important; }
+    tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+    .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+    .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+</style>
+""", unsafe_allow_html=True)
+
 
 st.set_page_config(page_title="KHT Auto Grader", layout="wide")
 
@@ -252,3 +311,4 @@ if page == "📈 Analytics":
                 st.table(top_df.reset_index(drop=True))
         else:
             st.info("ℹ️ No results available for this department/subject yet.")
+
