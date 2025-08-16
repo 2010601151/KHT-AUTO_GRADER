@@ -151,9 +151,10 @@ if not st.session_state.authenticated:
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
-        st.session_state.authenticated = False
-        st.session_state.role = None
-        st.experimental_rerun()
+    st.session_state.authenticated = False
+    st.session_state.role = None
+    st.experimental_rerun()  # Make sure nothing else runs after
+    st.stop()  # Stops Streamlit execution in the current run
 
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
@@ -332,4 +333,5 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
 
