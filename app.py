@@ -1,4 +1,4 @@
-# ---------- app.py (Streamlit Cloud–Ready + OCR Fixed) ----------
+# ---------- app.py (Final Purple & White, Bold Black Notifications, Always Show Upload) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -14,7 +14,7 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- Theme ----------
 st.markdown("""
     <style>
-        .stApp { background-color: #ffffff; color: #5c4d7d; }
+        .stApp { background-color: #ffffff; color: #000000; }
         section[data-testid="stSidebar"] { background-color: #6a1b9a; }
         section[data-testid="stSidebar"] * { color: white !important; }
         h1, h2, h3, h4 { color: #000000; font-weight: bold; }
@@ -23,13 +23,17 @@ st.markdown("""
             border: none; border-radius: 5px; padding: 0.4em 1em;
         }
         div.stButton > button:hover { background-color: #4a0072; color: white; }
-        input, textarea, select { border: 1px solid #6a1b9a !important; color: #5c4d7d !important; }
+        input, textarea, select { border: 1px solid #6a1b9a !important; color: #ffffff !important; }
         label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
         table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
         thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
         tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
-        tbody tr:nth-child(even) { background-color: white !important; }
-        tbody tr td { color: #5c4d7d !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+        tbody tr:nth-child(even) { background-color: #ffffff !important; }
+        tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+        .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; }
+        .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+        .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+        .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -86,7 +90,6 @@ def save_answer_key(text):
 
 # ---------- OCR Helper ----------
 def extract_text_from_image(image):
-    # Works automatically on Streamlit Cloud Tesseract
     try:
         return pytesseract.image_to_string(image)
     except Exception as e:
@@ -110,76 +113,90 @@ if page == "📥 Upload Answer Key":
         else:
             key_text = extract_text_from_image(Image.open(key_file))
         save_answer_key(key_text)
-        st.text_area("Extracted Answer Key", key_text, height=200)
-        st.success("Answer Key saved successfully!")
+        st.markdown(f"<div class='ocr-box'><pre style='white-space: pre-wrap;'>{key_text}</pre></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<p style='color: black; font-weight: bold; font-size:16px;'>Answer Key saved successfully!</p>",
+            unsafe_allow_html=True
+        )
 
 # ---------- Page 2: Upload & Grade ----------
 if page == "📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exam for Grading")
+
     model_answer = load_answer_key()
     if not model_answer:
-        st.warning("Please upload the teacher's answer key before grading.")
-        st.stop()
+        st.markdown(
+            "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Please upload the teacher's answer key before grading.</p>",
+            unsafe_allow_html=True
+        )
 
+    # Student details input
     student_name = st.text_input("Student Name")
     student_id = st.text_input("Student ID")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
 
-    if not all([student_name, student_id, department, subject]):
-        st.info("Fill all student details before uploading exam.")
-        st.stop()
-
+    # Always show file uploader
     exam_file = st.file_uploader("Upload Student Exam (Image)", type=["jpg", "png", "jpeg"])
+
     if exam_file:
         image = Image.open(exam_file)
         student_answer = extract_text_from_image(image)
-        st.text_area("Extracted Student Answer", value=student_answer, height=200)
+        st.markdown(f"<div class='ocr-box'><pre style='white-space: pre-wrap;'>{student_answer}</pre></div>", unsafe_allow_html=True)
 
+        # Grade button logic
         if st.button("Grade Answer"):
-            score, feedback = grade_with_answer_key(model_answer, student_answer)
-            st.success(f"Final Score: {score}%")
+            if not model_answer:
+                st.markdown(
+                    "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Cannot grade: Answer key missing.</p>",
+                    unsafe_allow_html=True
+                )
+            elif not all([student_name, student_id, department, subject]):
+                st.markdown(
+                    "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Fill all student details before grading.</p>",
+                    unsafe_allow_html=True
+                )
+            else:
+                score, feedback = grade_with_answer_key(model_answer, student_answer)
+                st.markdown(
+                    f"<p style='color: black; font-weight: bold; font-size:16px;'>Final Score: {score}%</p>",
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    "<p style='color: black; font-weight: bold; font-size:14px;'>Detailed Feedback below:</p>",
+                    unsafe_allow_html=True
+                )
+                for line in feedback.split("\n"):
+                    if "✅" in line: cls = "feedback-correct"
+                    elif "⚠️" in line: cls = "feedback-partial"
+                    elif "❌" in line: cls = "feedback-wrong"
+                    else: cls = ""
+                    st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
 
-            # Inline feedback with semantic similarity
-            st.markdown("### Detailed Feedback")
-            for line in feedback.split("\n"):
-                st.text(line)
+                result = {
+                    "Student ID": student_id,
+                    "Name": student_name,
+                    "Department": department,
+                    "Subject": subject,
+                    "Answer": student_answer,
+                    "Score": score,
+                    "Feedback": feedback,
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
 
-            # Save results
-            result = {
-                "Student ID": student_id,
-                "Name": student_name,
-                "Department": department,
-                "Subject": subject,
-                "Answer": student_answer,
-                "Score": score,
-                "Feedback": feedback,
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+                save_path = f"results/{department}/{subject}/results.csv"
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
-            save_path = f"results/{department}/{subject}/results.csv"
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                try:
+                    df = pd.read_csv(save_path)
+                    df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+                except:
+                    df = pd.DataFrame([result])
 
-            try:
-                df = pd.read_csv(save_path)
-                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-            except:
-                df = pd.DataFrame([result])
+                df.to_csv(save_path, index=False)
+                st.markdown(
+                    "<p style='color: black; font-weight: bold; font-size:16px;'>Result saved to dashboard!</p>",
+                    unsafe_allow_html=True
+                )
 
-            df.to_csv(save_path, index=False)
-            st.success("Result saved to dashboard!")
-
-# ---------- Pages 3,4,5: Search, Dashboard, Analytics ----------
-# Keep as in previous version (unchanged)
-
-# ---------- Footer ----------
-st.markdown(
-    """
-    <div style='text-align: center; margin-top: 20px; font-size: 16px; color: #6a1b9a;'>
-        Built with ❤️ by <strong>Korvah Harper Tarnue</strong><br>
-        Software Engineer, Cyprus International University<br>
-        Version 1.0 • Updated August 2025
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# ---------- Pages 3, 4, 5 remain same (can also apply bold-black style to messages) ----------
