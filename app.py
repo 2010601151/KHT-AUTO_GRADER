@@ -130,8 +130,10 @@ if page=="🧑‍🏫 Manage Teachers" and st.session_state.role=="Admin":
     
     st.markdown("### Registered Teachers")
     if teachers:
-        for t_user in teachers:
-            st.markdown(f"- {t_user} | {str(teachers[t_user])[:10]}... (hashed)")
+        show_passwords = st.checkbox("🔓 Show first 10 characters of hashed passwords")
+        for t_user, t_hash in teachers.items():
+            display_pass = t_hash[:10] + "..." if show_passwords else "(hashed)"
+            st.markdown(f"- {t_user} | {display_pass}")
             if st.button(f"Delete {t_user}"):
                 del teachers[t_user]
                 save_teachers(teachers)
