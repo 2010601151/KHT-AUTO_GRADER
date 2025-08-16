@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Slide + Bounce Login) ----------
+# ---------- app.py (Professional Update, Slide + Bounce Login + Floating Mobile Login) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -111,6 +111,21 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
 
+# ---------- Floating Login Button ----------
+if not st.session_state.authenticated:
+    st.markdown("""
+    <div class="floating-login" onclick="document.getElementById('sidebar-login').click();">
+        🔐 Login
+    </div>
+    <script>
+        const btn = document.createElement('button');
+        btn.style.display = 'none';
+        btn.id = 'sidebar-login';
+        document.body.appendChild(btn);
+    </script>
+    """, unsafe_allow_html=True)
+
+# ---------- Sidebar Login ----------
 if not st.session_state.authenticated:
     st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
     st.sidebar.subheader("🔐 Teacher Login Required")
