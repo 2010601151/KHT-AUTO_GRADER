@@ -14,7 +14,7 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- Theme ----------
 st.markdown("""
 <style>
-    .stApp { background-color: #ffffff; color:#4a0072; }
+    .stApp { background-color: #ffffff; color:#000000; }
     section[data-testid="stSidebar"] { background-color: #6a1b9a; }
     section[data-testid="stSidebar"] * { color: white !important; }
     h1, h2, h3, h4 { color: #000000; font-weight: bold; }
@@ -55,7 +55,11 @@ if not st.session_state.authenticated:
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.sidebar.markdown("<p class='notification'>Login successful!</p>", unsafe_allow_html=True)
+          st.sidebar.markdown(
+    "<p style='color:#28a745; font-weight:bold; font-size:16px;'>Login successful!</p>",
+    unsafe_allow_html=True
+)
+
         else:
             st.sidebar.markdown("<p class='notification'>Incorrect password.</p>", unsafe_allow_html=True)
     st.stop()
@@ -200,10 +204,9 @@ if page == "📊 View Dashboard":
         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
-
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
-    st.subheader("📊 Analytics Overview")
+    st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
 
     # Select Department & Subject
     department = st.text_input("Department", value="General").strip().replace("/", "-")
@@ -214,12 +217,12 @@ if page == "📈 Analytics":
         df = pd.read_csv(analytics_path)
 
         if df.empty:
-            st.warning("No student results yet for this department/subject.")
+            st.markdown("<p style='color:#000000; font-weight:bold;'>⚠️ No student results yet for this department/subject.</p>", unsafe_allow_html=True)
         else:
             import plotly.express as px
 
             # Score Distribution Histogram
-            st.markdown("### Score Distribution")
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
             fig_dist = px.histogram(df, x="Score", nbins=10, 
                                     title="Score Distribution", 
                                     labels={"Score":"Score (%)"}, 
@@ -230,14 +233,14 @@ if page == "📈 Analytics":
             avg_score = df['Score'].mean()
             max_score = df['Score'].max()
             min_score = df['Score'].min()
-            st.markdown("### Key Metrics")
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns(3)
             col1.metric("Average Score", f"{avg_score:.2f}%")
             col2.metric("Highest Score", f"{max_score}%")
             col3.metric("Lowest Score", f"{min_score}%")
 
             # Scores Over Time
-            st.markdown("### Score Trend Over Time")
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
             df['Timestamp'] = pd.to_datetime(df['Timestamp'])
             df_sorted = df.sort_values('Timestamp')
             fig_trend = px.line(df_sorted, x='Timestamp', y='Score', 
@@ -246,7 +249,7 @@ if page == "📈 Analytics":
             st.plotly_chart(fig_trend, use_container_width=True)
 
             # Pass/Fail Pie Chart
-            st.markdown("### Pass / Fail Breakdown")
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
             pass_threshold = 50
             df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
             fig_pie = px.pie(df, names='Result', title='Pass vs Fail', 
@@ -255,9 +258,9 @@ if page == "📈 Analytics":
             st.plotly_chart(fig_pie, use_container_width=True)
 
             # Top Performers Leaderboard
-            st.markdown("### Top Performers")
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
             top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
             st.table(top_df.reset_index(drop=True))
 
     else:
-        st.info("No results available for this department/subject yet. Upload and grade exams first.")
+        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
