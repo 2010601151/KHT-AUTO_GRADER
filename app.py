@@ -1,4 +1,4 @@
-# ---------- app.py (Cloud + Inline Grading Debug Version) ----------
+# ---------- app.py (Streamlit Cloud–Ready + OCR Fixed) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -11,7 +11,7 @@ from auto_grader import grade_with_answer_key
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- Purple and White Professional Theme ----------
+# ---------- Theme ----------
 st.markdown("""
     <style>
         .stApp { background-color: #ffffff; color: #5c4d7d; }
@@ -86,7 +86,12 @@ def save_answer_key(text):
 
 # ---------- OCR Helper ----------
 def extract_text_from_image(image):
-    return pytesseract.image_to_string(image)
+    # Works automatically on Streamlit Cloud Tesseract
+    try:
+        return pytesseract.image_to_string(image)
+    except Exception as e:
+        st.error(f"OCR Error: {e}")
+        return ""
 
 # ---------- Function to Color Score Rows ----------
 def color_rows(val):
@@ -97,8 +102,8 @@ def color_rows(val):
 
 # ---------- Page 1: Upload Answer Key ----------
 if page == "📥 Upload Answer Key":
-    st.subheader("Upload Teacher Answer Key (Required before grading)")
-    key_file = st.file_uploader("Upload Answer Key (Text or Image)", type=["txt", "jpg", "jpeg", "png"])
+    st.subheader("Upload Teacher Answer Key (Text or Image)")
+    key_file = st.file_uploader("Upload Answer Key", type=["txt", "jpg", "jpeg", "png"])
     if key_file:
         if key_file.type.startswith("text"):
             key_text = key_file.read().decode("utf-8")
@@ -132,16 +137,15 @@ if page == "📤 Upload & Grade Student Exam":
         st.text_area("Extracted Student Answer", value=student_answer, height=200)
 
         if st.button("Grade Answer"):
-            # ---------------- Grading ----------------
             score, feedback = grade_with_answer_key(model_answer, student_answer)
             st.success(f"Final Score: {score}%")
-            
-            # Show inline debug scores from semantic grading
-            st.markdown("### Detailed Feedback with Semantic Similarity")
+
+            # Inline feedback with semantic similarity
+            st.markdown("### Detailed Feedback")
             for line in feedback.split("\n"):
                 st.text(line)
 
-            # ---------------- Save Result ----------------
+            # Save results
             result = {
                 "Student ID": student_id,
                 "Name": student_name,
@@ -165,7 +169,8 @@ if page == "📤 Upload & Grade Student Exam":
             df.to_csv(save_path, index=False)
             st.success("Result saved to dashboard!")
 
-# ---------- Pages 3, 4, 5 remain unchanged (Search, Dashboard, Analytics) ----------
+# ---------- Pages 3,4,5: Search, Dashboard, Analytics ----------
+# Keep as in previous version (unchanged)
 
 # ---------- Footer ----------
 st.markdown(
