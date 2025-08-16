@@ -60,7 +60,10 @@ pytesseract
 opencv-python
 
 # Added for text similarity
+pytesseract
+opencv-python
 sentence-transformers
 torch
+
 
 
