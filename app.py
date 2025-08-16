@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Fixed Indentation) ----------
+# ---------- app.py (Professional Update + Slide-In Login) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -32,6 +32,58 @@ st.markdown("""
     .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; }
+
+    /* Slide-in Login Drawer */
+    .login-drawer {
+        background-color: #6a1b9a;
+        padding: 30px 20px;
+        border-radius: 0 15px 15px 0;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+        animation: slideFromLeft 0.6s ease-out;
+        width: 250px;
+        margin-top: 50px;
+    }
+    @keyframes slideFromLeft {
+        from { transform: translateX(-300px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    .login-drawer h2 {
+        color: #ffffff;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .login-drawer input {
+        border: 2px solid #ffffff !important;
+        border-radius: 8px;
+        padding: 8px;
+        width: 100%;
+        margin-bottom: 15px;
+        font-weight: bold;
+        background-color: #f3e5f5 !important;
+        color: #000000 !important;
+    }
+    .login-drawer button {
+        background-color: #ffeb3b;
+        color: #6a1b9a;
+        font-weight: bold;
+        border-radius: 8px;
+        padding: 10px 0;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        transition: 0.3s;
+    }
+    .login-drawer button:hover {
+        background-color: #ffc107;
+    }
+    .login-drawer .notification {
+        font-size: 14px;
+        font-weight: bold;
+        color: #ffeb3b;
+        margin-top: 10px;
+        text-align: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,21 +101,20 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 if not st.session_state.authenticated:
-    st.sidebar.subheader("🔐 Teacher Login Required")
-    password = st.sidebar.text_input("Enter Teacher Password", type="password")
-    if st.sidebar.button("Login"):
+    st.markdown("""
+        <div class="login-drawer">
+            <h2>🔐 Teacher Login</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+    password = st.text_input("Enter Teacher Password", type="password")
+    if st.button("Login"):
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.sidebar.markdown(
-                "<p style='color:#28a745; font-weight:bold; font-size:16px;'>Login successful!</p>",
-                unsafe_allow_html=True
-            )
+            st.markdown("<p class='login-drawer notification'>Login successful!</p>", unsafe_allow_html=True)
         else:
-            st.sidebar.markdown(
-                "<p class='notification'>Incorrect password.</p>",
-                unsafe_allow_html=True
-            )
+            st.markdown("<p class='login-drawer notification'>Incorrect password.</p>", unsafe_allow_html=True)
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
@@ -106,6 +157,8 @@ def color_rows(val):
     elif val >= 60: color = '#fff3cd'
     else: color = '#f8d7da'
     return f'background-color: {color}'
+
+
 
 # ---------- Page 1: Upload Answer Key ----------
 if page == "📥 Upload Answer Key":
@@ -267,3 +320,4 @@ if page == "📈 Analytics":
 
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
