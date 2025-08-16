@@ -68,6 +68,31 @@ st.markdown("""
     .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
 </style>
+ ---------- Mobile-Friendly Floating Login Button ----------
+if not st.session_state.get("authenticated", False):
+    st.markdown("""
+    <style>
+    .floating-login {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        background-color: #6a1b9a;
+        color: white;
+        font-weight: bold;
+        padding: 0.8em 1.2em;
+        border-radius: 50px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        z-index: 1000;
+        cursor: pointer;
+        animation: bounce 1.2s infinite;
+    }
+
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-8px); }
+        60% { transform: translateY(-4px); }
+    }
+    </style>
 """, unsafe_allow_html=True)
 
 # ---------- App Title ----------
@@ -297,3 +322,4 @@ if page == "📈 Analytics":
 
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
