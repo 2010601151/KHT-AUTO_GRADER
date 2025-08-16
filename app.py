@@ -1,93 +1,160 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Admin + Teacher + Bonus/Penalty) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Admin + Teacher Accounts) ----------
 import streamlit as st
-import json, os, hashlib, pandas as pd
+import json
+import pandas as pd
 from datetime import datetime
 from PIL import Image
 import pytesseract
+import os
+import hashlib
 from auto_grader import grade_with_answer_key
-import plotly.express as px
 
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- CSS & Styling ----------
+# ---------- Theme & Sidebar Animation ----------
 st.markdown("""
 <style>
-.stApp {background-color:#ffffff;color:#000000;}
-section[data-testid="stSidebar"] {background-color:#6a1b9a;padding-top:2rem;}
-section[data-testid="stSidebar"] * {color:white !important;}
-.login-card {background-color:#ffffff;color:#000000;padding:1.5rem;border-radius:10px;
-box-shadow:0px 4px 15px rgba(0,0,0,0.3);max-width:280px;margin:2rem auto;
-transform:translateX(-150%);opacity:0;animation:slideBounce 0.8s forwards ease-out;}
-@keyframes slideBounce {0%{transform:translateX(-150%);opacity:0;}70%{transform:translateX(10px);opacity:1;}100%{transform:translateX(0);opacity:1;}}
-.notification {color:black;font-weight:bold;font-size:16px;padding:5px 10px;border-radius:5px;animation:fadeIn 0.6s ease-in-out;}
-@keyframes fadeIn {from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
-h1,h2,h3,h4 {color:#000000;font-weight:bold;}
-div.stButton > button {background-color:#6a1b9a;color:white;font-weight:bold;border:none;border-radius:5px;padding:0.4em 1em;}
-div.stButton > button:hover {background-color:#4a0072;color:white;}
-input,textarea,select {border:1px solid #6a1b9a !important;color:#000000 !important;font-weight:bold;}
-label,.stFileUploader label {color:#6a1b9a !important;font-weight:bold;}
-table {border:2px solid #6a1b9a !important;border-collapse:collapse !important;}
-thead tr th {background-color:#6a1b9a !important;color:white !important;font-weight:bold !important;}
-tbody tr:nth-child(odd){background-color:#f3e5f5 !important;}
-tbody tr:nth-child(even){background-color:#ffffff !important;}
-tbody tr td{color:#000000 !important;font-weight:500 !important;border:1px solid #ddd !important;}
-.ocr-box {background-color:#f7f7f7;color:#000000;border:1px solid #ccc;padding:10px;border-radius:5px;max-height:300px;overflow:auto;font-size:14px;}
-.feedback-correct {background-color:#28a745;color:white;font-weight:bold;padding:2px 4px;border-radius:3px;}
-.feedback-partial {background-color:#ffc107;color:black;font-weight:bold;padding:2px 4px;border-radius:3px;}
-.feedback-wrong {background-color:#dc3545;color:white;font-weight:bold;padding:2px 4px;border-radius:3px;}
+    .stApp { background-color: #ffffff; color:#000000; }
+    section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
+    section[data-testid="stSidebar"] * { color: white !important; }
+    .login-card {
+        background-color: #ffffff; color: #000000; padding: 1.5rem; border-radius: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
+        transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards ease-out;
+    }
+    @keyframes slideBounce {
+        0% { transform: translateX(-150%); opacity: 0; }
+        70% { transform: translateX(10px); opacity: 1; }
+        100% { transform: translateX(0); opacity: 1; }
+    }
+    .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
+        animation: fadeIn 0.6s ease-in-out; }
+    @keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
+    h1, h2, h3, h4 { color: #000000; font-weight: bold; }
+    div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
+    div.stButton > button:hover { background-color: #4a0072; color: white; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #ffffff !important; font-weight:bold; }
+    label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
+    table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
+    thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
+    tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
+    tbody tr:nth-child(even) { background-color: #ffffff !important; }
+    tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+    .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+    .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
 </style>
 """, unsafe_allow_html=True)
 
+# ---------- App Title & Logo ----------
+st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
+if os.path.exists("kht_logo.jpeg"):
+    st.image("kht_logo.jpeg", width=140)
+
 # ---------- Helper Functions ----------
-def hash_password(password): return hashlib.sha256(password.encode()).hexdigest()
-def load_teachers(): return json.load(open("teachers.json","r")) if os.path.exists("teachers.json") else {}
-def save_teachers(data): json.dump(data, open("teachers.json","w"))
-def load_answer_key(): 
-    try: return json.load(open("answer_key.json","r")).get("key","")
-    except: return ""
-def save_answer_key(text): json.dump({"key": text}, open("answer_key.json","w"))
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_teachers():
+    if os.path.exists("teachers.json"):
+        with open("teachers.json", "r") as f:
+            return json.load(f)
+    return {}
+
+def save_teachers(data):
+    with open("teachers.json", "w") as f:
+        json.dump(data, f)
+
+def load_answer_key():
+    try:
+        with open("answer_key.json", "r") as f:
+            return json.load(f).get("key", "")
+    except:
+        return ""
+
+def save_answer_key(text):
+    with open("answer_key.json", "w") as f:
+        json.dump({"key": text}, f)
+
 def extract_text_from_image(image):
-    try: return pytesseract.image_to_string(image)
-    except Exception as e: st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True); return ""
-def color_rows(val): return 'background-color:#d4edda' if val>=85 else 'background-color:#fff3cd' if val>=60 else 'background-color:#f8d7da'
+    try:
+        return pytesseract.image_to_string(image)
+    except Exception as e:
+        st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
+        return ""
+
+def color_rows(val):
+    if val >= 85: color = '#d4edda'
+    elif val >= 60: color = '#fff3cd'
+    else: color = '#f8d7da'
+    return f'background-color: {color}'
 
 # ---------- Authentication ----------
-if "authenticated" not in st.session_state: st.session_state.authenticated=False; st.session_state.role=None
-login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
-ADMIN_USERNAME, ADMIN_PASSWORD_HASH = "admin", hash_password("admin123")
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+    st.session_state.role = None
 
-# Admin login
-if login_type=="Admin":
+login_type = st.sidebar.radio("Login as:", ["Admin", "Teacher"])
+
+# ---------- Admin Login ----------
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = hash_password("admin123")
+
+if login_type == "Admin":
     st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    admin_user, admin_pass = st.sidebar.text_input("Username"), st.sidebar.text_input("Password", type="password")
+    st.sidebar.subheader("🔐 Admin Login")
+    admin_user = st.sidebar.text_input("Username")
+    admin_pass = st.sidebar.text_input("Password", type="password")
     if st.sidebar.button("Login as Admin"):
-        if admin_user==ADMIN_USERNAME and hash_password(admin_pass)==ADMIN_PASSWORD_HASH:
-            st.session_state.authenticated=True; st.session_state.role="Admin"
+        if admin_user == ADMIN_USERNAME and hash_password(admin_pass) == ADMIN_PASSWORD_HASH:
+            st.session_state.authenticated = True
+            st.session_state.role = "Admin"
             st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    if not st.session_state.authenticated: st.stop()
+    if not st.session_state.authenticated:
+        st.stop()
 
-# Teacher login/register
-if login_type=="Teacher":
+# ---------- Teacher Login/Register ----------
+if login_type == "Teacher":
     st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    teachers=load_teachers()
-    teacher_user, teacher_pass = st.sidebar.text_input("Username"), st.sidebar.text_input("Password", type="password")
-    login_btn, register_btn = st.sidebar.button("Login"), st.sidebar.button("Register")
+    st.sidebar.subheader("🔐 Teacher Login / Register")
+    teachers = load_teachers()
+    teacher_user = st.sidebar.text_input("Username")
+    teacher_pass = st.sidebar.text_input("Password", type="password")
+    login_btn = st.sidebar.button("Login as Teacher")
+    register_btn = st.sidebar.button("Register Teacher")
+    
     if login_btn:
-        if teacher_user in teachers and teachers[teacher_user]==hash_password(teacher_pass):
-            st.session_state.authenticated=True; st.session_state.role="Teacher"
+        if teacher_user in teachers and teachers[teacher_user] == hash_password(teacher_pass):
+            st.session_state.authenticated = True
+            st.session_state.role = "Teacher"
             st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+    
     if register_btn:
-        if teacher_user in teachers: st.sidebar.markdown("<p class='notification'>❌ Username exists.</p>", unsafe_allow_html=True)
-        elif teacher_user and teacher_pass: teachers[teacher_user]=hash_password(teacher_pass); save_teachers(teachers)
-        st.sidebar.markdown("<p class='notification'>✅ Registered!</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    if not st.session_state.authenticated: st.stop()
+        if teacher_user in teachers:
+            st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
+        elif teacher_user and teacher_pass:
+            teachers[teacher_user] = hash_password(teacher_pass)
+            save_teachers(teachers)
+            st.sidebar.markdown("<p class='notification'>✅ Teacher registered successfully!</p>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
 
-if st.sidebar.button("🚪 Logout"): st.session_state.authenticated=False; st.session_state.role=None; st.experimental_rerun()
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    if not st.session_state.authenticated:
+        st.stop()
+
+# ---------- Logout ----------
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.authenticated = False
+    st.session_state.role = None
+    st.rerun()
 
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
@@ -135,20 +202,16 @@ if page == "📤 Upload & Grade Student Exam":
             elif not all([student_name, student_id, department, subject]):
                 st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
             else:
-                # Grade using auto_grader and apply bonus/penalty
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
-                bonus, penalty = 5, 0  # example values
-                total_score = score + bonus - penalty
-
-                st.markdown(f"<p class='notification'>Final Score: {total_score}%</p>", unsafe_allow_html=True)
-                st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
+                st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
                 for line in feedback.split("\n"):
                     cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
                     st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
 
                 result = {
                     "Student ID": student_id, "Name": student_name, "Department": department,
-                    "Subject": subject, "Answer": student_answer, "Score": total_score,
+                    "Subject": subject, "Answer": student_answer, "Score": score,
                     "Feedback": feedback, "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
 
@@ -196,7 +259,7 @@ if page == "📊 View Dashboard":
 
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
-    st.markdown("<h2>📊 Analytics Overview</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
@@ -204,33 +267,34 @@ if page == "📈 Analytics":
     if os.path.exists(analytics_path):
         df = pd.read_csv(analytics_path)
         if df.empty:
-            st.markdown("<p>⚠️ No student results yet for this department/subject.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#000000; font-weight:bold;'>⚠️ No student results yet for this department/subject.</p>", unsafe_allow_html=True)
         else:
-            st.markdown("<h3>Score Distribution</h3>", unsafe_allow_html=True)
-            fig_dist = px.histogram(df, x="Score", nbins=10, color_discrete_sequence=["#6a1b9a"])
+            import plotly.express as px
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
+            fig_dist = px.histogram(df, x="Score", nbins=10, title="Score Distribution", labels={"Score":"Score (%)"}, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
 
             avg_score, max_score, min_score = df['Score'].mean(), df['Score'].max(), df['Score'].min()
-            st.markdown("<h3>Key Metrics</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns(3)
-            col1.markdown(f"Average Score<br>{avg_score:.2f}%", unsafe_allow_html=True)
-            col2.markdown(f"Highest Score<br>{max_score}%", unsafe_allow_html=True)
-            col3.markdown(f"Lowest Score<br>{min_score}%", unsafe_allow_html=True)
+            col1.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Average Score<br>{avg_score:.2f}%</p>", unsafe_allow_html=True)
+            col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
+            col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
 
-            st.markdown("<h3>Score Trend Over Time</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
             df['Timestamp'] = pd.to_datetime(df['Timestamp'])
             df_sorted = df.sort_values('Timestamp')
-            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', markers=True, color_discrete_sequence=["#6a1b9a"])
+            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', title="Student Scores Over Time", markers=True, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_trend, use_container_width=True)
 
-            st.markdown("<h3>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
             pass_threshold = 50
             df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
-            fig_pie = px.pie(df, names='Result', color='Result', color_discrete_map={'Pass':'#28a745','Fail':'#dc3545'})
+            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', color='Result', color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
             st.plotly_chart(fig_pie, use_container_width=True)
 
-            st.markdown("<h3>Top Performers</h3>", unsafe_allow_html=True)
-            top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID','Name','Score']]
+            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
+            top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
             st.table(top_df.reset_index(drop=True))
     else:
-        st.markdown("<p>ℹ️ No results available. Upload and grade exams first.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
