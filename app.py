@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Slide + Bounce Login + Floating Mobile Login) ----------
+# ---------- app.py (Professional Update, Slide + Bounce Login + Floating Mobile Login Left) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -77,21 +77,31 @@ st.markdown("""
     .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
     .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
 
-    /* Floating login button */
-    .floating-login {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        background-color: #6a1b9a;
-        color: white;
-        font-weight: bold;
-        padding: 0.8em 1.2em;
-        border-radius: 50px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        z-index: 1000;
-        cursor: pointer;
-        animation: bounce 1.2s infinite;
+    /* Floating login button (mobile, left slide-in + bounce) */
+    @media (max-width: 768px) {
+        .floating-login {
+            display: block;
+            position: fixed;
+            top: 1rem;
+            left: -150px; /* Start off-screen left */
+            background-color: #6a1b9a;
+            color: white;
+            font-weight: bold;
+            padding: 0.8em 1.2em;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            cursor: pointer;
+            animation: slideBounceLeft 1s forwards, bounce 1.2s 1s infinite;
+        }
+        @keyframes slideBounceLeft {
+            0% { left: -150px; opacity:0; }
+            70% { left: 10px; opacity:1; }
+            100% { left: 1rem; opacity:1; }
+        }
     }
+    @media (min-width: 769px) { .floating-login { display:none; } }
+
     @keyframes bounce {
         0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
         40% { transform: translateY(-8px); }
@@ -178,6 +188,8 @@ def color_rows(val):
     elif val >= 60: color = '#fff3cd'
     else: color = '#f8d7da'
     return f'background-color: {color}'
+
+
 
 # ---------- Page: Upload Answer Key ----------
 if page == "📥 Upload Answer Key":
@@ -320,3 +332,4 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
