@@ -64,6 +64,12 @@ pytesseract
 opencv-python
 sentence-transformers
 torch
+streamlit
+pandas
+Pillow
+scikit-learn
+
+
 
 
 
