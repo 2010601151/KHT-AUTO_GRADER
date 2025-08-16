@@ -161,20 +161,28 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated = False
     st.session_state.role = None
     st.session_state.trigger_rerun = True
-
 # ---------- Safe Rerun ----------
+if "trigger_rerun" not in st.session_state:
+    st.session_state.trigger_rerun = False
+
+# After login or logout, set the flag instead of calling rerun immediately
+if st.sidebar.button("Login"):
+    if password == VALID_TEACHER_PASSWORD:
+        st.session_state.authenticated = True
+        st.session_state.role = "Teacher"
+        st.session_state.trigger_rerun = True
+    else:
+        st.sidebar.markdown("<p class='notification'>❌ Incorrect password.</p>", unsafe_allow_html=True)
+
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.authenticated = False
+    st.session_state.role = None
+    st.session_state.trigger_rerun = True
+
+# Top-level rerun check (outside any sidebar/button logic)
 if st.session_state.trigger_rerun:
     st.session_state.trigger_rerun = False
     st.experimental_rerun()
-
-# ---------- Sidebar Navigation ----------
-page = st.sidebar.selectbox("📂 Select Page", [
-    "📥 Upload Answer Key",
-    "📤 Upload & Grade Student Exam",
-    "🔍 Search Results (ID or Name)",
-    "📊 View Dashboard",
-    "📈 Analytics"
-])
 
 # ---------- Helper Functions ----------
 def load_answer_key():
@@ -344,3 +352,4 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
