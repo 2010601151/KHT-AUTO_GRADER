@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Animated Login) ----------
+# ---------- app.py (Professional Update, Slide + Bounce Login) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -16,19 +16,14 @@ st.markdown("""
 <style>
     .stApp { background-color: #ffffff; color:#000000; }
 
-    /* Sidebar slide-in */
+    /* Sidebar fixed background */
     section[data-testid="stSidebar"] {
         background-color: #6a1b9a;
-        transform: translateX(-100%);
-        transition: transform 0.4s ease-in-out;
         padding-top: 2rem;
-    }
-    section[data-testid="stSidebar"]:hover {
-        transform: translateX(0%);
     }
     section[data-testid="stSidebar"] * { color: white !important; }
 
-    /* Login card styling */
+    /* Centered login card with slide-in + bounce */
     .login-card {
         background-color: #ffffff;
         color: #000000;
@@ -36,10 +31,17 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
         max-width: 280px;
-        margin: auto;
-        transition: transform 0.3s ease;
+        margin: 2rem auto;
+        transform: translateX(-150%);
+        opacity: 0;
+        animation: slideBounce 0.8s forwards ease-out;
     }
-    .login-card:hover { transform: scale(1.02); }
+
+    @keyframes slideBounce {
+        0% { transform: translateX(-150%); opacity: 0; }
+        70% { transform: translateX(10px); opacity: 1; }
+        100% { transform: translateX(0); opacity: 1; }
+    }
 
     /* Notification animation */
     .notification {
@@ -239,6 +241,8 @@ if page == "📊 View Dashboard":
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
     st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
+
+    # Select Department & Subject
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
@@ -250,11 +254,15 @@ if page == "📈 Analytics":
         else:
             import plotly.express as px
 
+            # Score Distribution Histogram
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
-            fig_dist = px.histogram(df, x="Score", nbins=10, title="Score Distribution", labels={"Score":"Score (%)"}, color_discrete_sequence=["#6a1b9a"])
+            fig_dist = px.histogram(df, x="Score", nbins=10, 
+                                    title="Score Distribution", 
+                                    labels={"Score":"Score (%)"}, 
+                                    color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
 
-            # Key Metrics
+            # ---------- Key Metrics ----------
             avg_score = df['Score'].mean()
             max_score = df['Score'].max()
             min_score = df['Score'].min()
@@ -264,23 +272,28 @@ if page == "📈 Analytics":
             col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
             col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
 
-            # Score Trend
+            # Scores Over Time
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
             df['Timestamp'] = pd.to_datetime(df['Timestamp'])
             df_sorted = df.sort_values('Timestamp')
-            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', title="Student Scores Over Time", markers=True, color_discrete_sequence=["#6a1b9a"])
+            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', 
+                                title="Student Scores Over Time", 
+                                markers=True, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_trend, use_container_width=True)
 
             # Pass/Fail Pie Chart
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
             pass_threshold = 50
             df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
-            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', color='Result', color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
+            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', 
+                             color='Result', 
+                             color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
             st.plotly_chart(fig_pie, use_container_width=True)
 
-            # Top Performers
+            # Top Performers Leaderboard
             st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
             top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
             st.table(top_df.reset_index(drop=True))
+
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
