@@ -1,4 +1,3 @@
-# ---------- app.py (Professional Full KHT AI Auto-Grader with Admin Teacher Management) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -16,14 +15,30 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 st.markdown("""
 <style>
     .stApp { background-color: #ffffff; color:#000000; }
-    section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
-    section[data-testid="stSidebar"] * { color: white !important; }
+    .top-nav {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #6a1b9a;
+        padding: 0.5rem;
+    }
+    .top-nav button {
+        background-color: #6a1b9a !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 5px !important;
+        padding: 0.4em 1em !important;
+        font-weight: bold !important;
+    }
+    .top-nav button:hover {
+        background-color:#4a0072 !important;
+        color:white !important;
+    }
     .login-card { background-color: #ffffff; color: #000000; padding: 1.5rem; border-radius: 10px;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto; }
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 320px; margin: 2rem auto; }
     .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; }
     h1,h2,h3,h4 { color: #000000; font-weight: bold; }
-    div.stButton > button { background-color: #6a1b9a; color:white; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
-    div.stButton > button:hover { background-color:#4a0072; color:white; }
     table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; }
     thead tr th { background-color:#6a1b9a !important; color:white !important; font-weight:bold !important; }
     tbody tr:nth-child(odd) { background-color:#f3e5f5 !important; }
@@ -67,83 +82,90 @@ def safe_rerun():
 # ---------- Authentication ----------
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "role" not in st.session_state: st.session_state.role = None
+if "page" not in st.session_state: st.session_state.page = "📥 Upload Answer Key"
 
-login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
+# ---------- Login Selection ----------
+login_type = st.radio("Login as:", ["Admin","Teacher"])
 
 # ---------- Admin Login ----------
 ADMIN_USERNAME, ADMIN_PASSWORD_HASH = "admin", hash_password("admin123")
 if login_type=="Admin":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.sidebar.subheader("🔐 Admin Login")
-    admin_user = st.sidebar.text_input("Username")
-    admin_pass = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login as Admin"):
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.subheader("🔐 Admin Login")
+    admin_user = st.text_input("Username")
+    admin_pass = st.text_input("Password", type="password")
+    if st.button("Login as Admin"):
         if admin_user==ADMIN_USERNAME and hash_password(admin_pass)==ADMIN_PASSWORD_HASH:
             st.session_state.authenticated=True
             st.session_state.role="Admin"
-            st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+            st.success("✅ Admin login successful!")
+        else: st.error("❌ Incorrect admin credentials.")
+    st.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
 
 # ---------- Teacher Login/Register ----------
 if login_type=="Teacher":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.sidebar.subheader("🔐 Teacher Login / Register")
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.subheader("🔐 Teacher Login / Register")
     teachers = load_teachers()
-    teacher_user = st.sidebar.text_input("Username")
-    teacher_pass = st.sidebar.text_input("Password", type="password")
-    login_btn = st.sidebar.button("Login as Teacher")
-    register_btn = st.sidebar.button("Register Teacher")
+    teacher_user = st.text_input("Username")
+    teacher_pass = st.text_input("Password", type="password")
+    login_btn = st.button("Login as Teacher")
+    register_btn = st.button("Register Teacher")
     if login_btn:
         if teacher_user in teachers and teachers[teacher_user]==hash_password(teacher_pass):
             st.session_state.authenticated=True
             st.session_state.role="Teacher"
-            st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+            st.success("✅ Login successful!")
+        else: st.error("❌ Incorrect username or password.")
     if register_btn:
-        if teacher_user in teachers: st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
+        if teacher_user in teachers: st.error("❌ Username already exists.")
         elif teacher_user and teacher_pass:
             teachers[teacher_user]=hash_password(teacher_pass)
             save_teachers(teachers)
-            st.sidebar.markdown("<p class='notification'>✅ Teacher registered successfully!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+            st.success("✅ Teacher registered successfully!")
+        else: st.warning("⚠️ Enter username and password to register.")
+    st.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
 
-# ---------- Logout ----------
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.authenticated=False
-    st.session_state.role=None
-    safe_rerun()
-
-# ---------- Sidebar Navigation ----------
-page = st.sidebar.selectbox("📂 Select Page", [
+# ---------- Top Menu Bar ----------
+menu_options = [
     "📥 Upload Answer Key",
     "📤 Upload & Grade Student Exam",
     "🔍 Search Results (ID or Name)",
     "📊 View Dashboard",
     "📈 Analytics",
-    "🧑‍🏫 Manage Teachers"
-])
+]
+if st.session_state.role=="Admin":
+    menu_options.append("🧑‍🏫 Manage Teachers")
+
+cols = st.columns(len(menu_options)+1)
+for i,opt in enumerate(menu_options):
+    if cols[i].button(opt):
+        st.session_state.page = opt
+
+# Logout button (last column)
+if cols[-1].button("🚪 Logout"):
+    st.session_state.authenticated=False
+    st.session_state.role=None
+    safe_rerun()
+
+page = st.session_state.page
 
 # ---------- Page: Admin Teacher Management ----------
 if page=="🧑‍🏫 Manage Teachers" and st.session_state.role=="Admin":
     st.subheader("Admin: Manage Teacher Accounts")
     teachers = load_teachers()
-    
     st.markdown("### Registered Teachers")
     if teachers:
         for t_user, t_hash in teachers.items():
             st.markdown(f"- {t_user} | {str(t_hash)[:10]}... (hashed)")
-            delete_btn_key = f"delete_{t_user}"  # unique key for each button
-            if st.button(f"Delete {t_user}", key=delete_btn_key):
+            if st.button(f"Delete {t_user}", key=f"delete_{t_user}"):
                 teachers.pop(t_user, None)
                 save_teachers(teachers)
                 safe_rerun()
     else:
         st.info("No teachers registered yet.")
-
     st.markdown("### Add New Teacher")
     new_user = st.text_input("New Teacher Username")
     new_pass = st.text_input("New Teacher Password")
@@ -246,26 +268,21 @@ if page=="📈 Analytics":
         if df.empty: st.info("No student results yet.")
         else:
             import plotly.express as px
-            # Score Distribution
             fig_dist = px.histogram(df, x="Score", nbins=10, title="Score Distribution", labels={"Score":"Score (%)"}, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist,use_container_width=True)
-            # Key Metrics
             avg_score,max_score,min_score = df['Score'].mean(), df['Score'].max(), df['Score'].min()
             col1,col2,col3=st.columns(3)
             col1.metric("Average Score", f"{avg_score:.2f}%")
             col2.metric("Highest Score", f"{max_score}%")
             col3.metric("Lowest Score", f"{min_score}%")
-            # Score Trend
             df['Timestamp']=pd.to_datetime(df['Timestamp'])
             df_sorted=df.sort_values('Timestamp')
             fig_trend=px.line(df_sorted, x='Timestamp', y='Score', title="Student Scores Over Time", markers=True, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_trend,use_container_width=True)
-            # Pass/Fail Pie
             pass_threshold=50
             df['Result']=df['Score'].apply(lambda x:'Pass' if x>=pass_threshold else 'Fail')
             fig_pie=px.pie(df,names='Result',title='Pass vs Fail',color='Result',color_discrete_map={'Pass':'#28a745','Fail':'#dc3545'})
             st.plotly_chart(fig_pie,use_container_width=True)
-            # Top Performers
             st.markdown("### Top Performers")
             top_df=df.sort_values('Score',ascending=False).head(10)[['Student ID','Name','Score']]
             st.table(top_df.reset_index(drop=True))
