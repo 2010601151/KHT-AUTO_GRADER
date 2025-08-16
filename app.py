@@ -63,6 +63,7 @@ def color_rows(val):
 # ---------- Authentication ----------
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "role" not in st.session_state: st.session_state.role = None
+if "rerun_flag" not in st.session_state: st.session_state.rerun_flag = False
 
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
 
@@ -78,6 +79,7 @@ if login_type=="Admin":
             st.session_state.authenticated=True
             st.session_state.role="Admin"
             st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
+            st.session_state.rerun_flag = True
         else: st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
@@ -96,6 +98,7 @@ if login_type=="Teacher":
             st.session_state.authenticated=True
             st.session_state.role="Teacher"
             st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
+            st.session_state.rerun_flag = True
         else: st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
     if register_btn:
         if teacher_user in teachers: st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
@@ -103,9 +106,15 @@ if login_type=="Teacher":
             teachers[teacher_user]=hash_password(teacher_pass)
             save_teachers(teachers)
             st.sidebar.markdown("<p class='notification'>✅ Teacher registered successfully!</p>", unsafe_allow_html=True)
+            st.session_state.rerun_flag = True
         else: st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
+
+# ---------- Safe Rerun ----------
+if st.session_state.rerun_flag:
+    st.session_state.rerun_flag = False
+    st.experimental_rerun()
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
