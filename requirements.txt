@@ -58,3 +58,7 @@ Werkzeug==3.1.3
 # Added for OCR
 pytesseract
 opencv-python
+
+# Added for text similarity
+sentence-transformers
+
