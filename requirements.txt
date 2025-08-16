@@ -61,4 +61,6 @@ opencv-python
 
 # Added for text similarity
 sentence-transformers
+torch
+
 
