@@ -1,4 +1,4 @@
-# ---------- app.py (Updated Professional Version with Responsive Home Page) ----------
+# ---------- app.py (Full Professional Update + Slide-In Login) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -11,103 +11,88 @@ from auto_grader import grade_with_answer_key
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- Custom CSS ----------
+# ---------- Theme ----------
 st.markdown("""
-    <style>
-        /* Logo at top-left */
-        .logo-container {
-            display: flex;
-            align-items: center;
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 100;
-        }
-        .logo-container img {
-            width: 120px;
-            height: auto;
-        }
+<style>
+    .stApp { background-color: #ffffff; color:#000000; }
+    section[data-testid="stSidebar"] { background-color: #6a1b9a; }
+    section[data-testid="stSidebar"] * { color: white !important; }
+    h1, h2, h3, h4 { color: #000000; font-weight: bold; }
+    div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
+    div.stButton > button:hover { background-color: #4a0072; color: white; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #ffffff !important; font-weight:bold; }
+    label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
+    table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
+    thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
+    tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
+    tbody tr:nth-child(even) { background-color: #ffffff !important; }
+    tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+    .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+    .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; }
 
-        /* Centered login card */
-        .login-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 80vh;
-        }
-
-        /* App name centered */
-        .app-title {
-            text-align: center;
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 30px;
-        }
-
-        /* Responsive password input */
-        input[type="password"] {
-            width: 300px !important;
-            max-width: 90vw !important;
-            font-size: 18px !important;
-            padding: 10px !important;
-        }
-
-        /* Center login button */
-        div.stButton > button {
-            width: 200px;
-            font-size: 18px;
-            margin-top: 10px;
-        }
-
-        /* App & Sidebar Theme */
-        .stApp { background-color: #ffffff; color: #000000; }
-        section[data-testid="stSidebar"] { background-color: #6a1b9a; }
-        section[data-testid="stSidebar"] * { color: white !important; }
-        h1, h2, h3, h4 { color: #000000; font-weight: bold; }
-
-        /* Buttons */
-        div.stButton > button {
-            background-color: #6a1b9a; color: white; font-weight: bold;
-            border: none; border-radius: 5px; padding: 0.4em 1em;
-        }
-        div.stButton > button:hover { background-color: #4a0072; color: white; }
-
-        /* Inputs & Labels */
-        input, textarea, select { border: 1px solid #6a1b9a !important; color: #ffffff!important; }
-        label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
-
-        /* Tables */
-        table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
-        thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
-        tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
-        tbody tr:nth-child(even) { background-color: #ffffff !important; }
-        tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
-        tbody tr:hover { background-color: #e0b3ff !important; }
-
-        /* OCR & Answer Key Boxes */
-        .ocr-box { background-color: #6a1b9a; color: white; border-radius:5px; padding:10px; max-height:300px; overflow:auto; font-size:16px; }
-
-        /* Student Exam Grading Preview Box */
-        .student-box { background-color:#000000; color:white; border-radius:5px; padding:10px; max-height:300px; overflow:auto; font-size:16px; }
-
-        /* Feedback Badges */
-        .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
-        .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
-        .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
-
-        /* Student Answer Textarea */
-        div.stTextArea > div > textarea { color:black !important; background-color:white !important; font-weight:bold !important; font-size:16px !important; }
-    </style>
+    /* Slide-in Login Drawer */
+    .login-drawer {
+        background-color: #6a1b9a;
+        padding: 30px 20px;
+        border-radius: 0 15px 15px 0;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+        animation: slideFromLeft 0.6s ease-out;
+        width: 250px;
+        margin-top: 50px;
+    }
+    @keyframes slideFromLeft {
+        from { transform: translateX(-300px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    .login-drawer h2 {
+        color: #ffffff;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .login-drawer input {
+        border: 2px solid #ffffff !important;
+        border-radius: 8px;
+        padding: 8px;
+        width: 100%;
+        margin-bottom: 15px;
+        font-weight: bold;
+        background-color: #f3e5f5 !important;
+        color: #000000 !important;
+    }
+    .login-drawer button {
+        background-color: #ffeb3b;
+        color: #6a1b9a;
+        font-weight: bold;
+        border-radius: 8px;
+        padding: 10px 0;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        transition: 0.3s;
+    }
+    .login-drawer button:hover {
+        background-color: #ffc107;
+    }
+    .login-drawer .notification {
+        font-size: 14px;
+        font-weight: bold;
+        color: #ffeb3b;
+        margin-top: 10px;
+        text-align: center;
+    }
+</style>
 """, unsafe_allow_html=True)
+
+# ---------- App Title ----------
+st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
 
 # ---------- Logo ----------
 if os.path.exists("kht_logo.jpeg"):
-    st.markdown(f"""
-        <div class="logo-container">
-            <img src="kht_logo.jpeg" alt="KHT Logo">
-        </div>
-    """, unsafe_allow_html=True)
+    st.image("kht_logo.jpeg", width=140)
 
 # ---------- Authentication ----------
 VALID_TEACHER_PASSWORD = "kht2025"
@@ -116,24 +101,27 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 if not st.session_state.authenticated:
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.markdown('<div class="app-title">KHT AI Auto-Grader</div>', unsafe_allow_html=True)
+    st.markdown("""
+        <div class="login-drawer">
+            <h2>🔐 Teacher Login</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
     password = st.text_input("Enter Teacher Password", type="password")
     if st.button("Login"):
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.success("✅ Login successful!")
-            st.experimental_rerun()
+            st.markdown("<p class='login-drawer notification'>Login successful!</p>", unsafe_allow_html=True)
         else:
-            st.error("❌ Incorrect password.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("<p class='login-drawer notification'>Incorrect password.</p>", unsafe_allow_html=True)
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
         st.session_state.authenticated = False
         st.session_state.role = None
         st.rerun()
+
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
     "📥 Upload Answer Key",
@@ -169,8 +157,6 @@ def color_rows(val):
     elif val >= 60: color = '#fff3cd'
     else: color = '#f8d7da'
     return f'background-color: {color}'
-
-
 
 # ---------- Page 1: Upload Answer Key ----------
 if page == "📥 Upload Answer Key":
@@ -276,7 +262,6 @@ if page == "📊 View Dashboard":
 if page == "📈 Analytics":
     st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
 
-    # Select Department & Subject
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
@@ -297,7 +282,7 @@ if page == "📈 Analytics":
                                     color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
 
-            # ---------- Average Score Metric (Bold Black) ----------
+            # ---------- Average Score Metric ----------
             avg_score = df['Score'].mean()
             max_score = df['Score'].max()
             min_score = df['Score'].min()
@@ -331,6 +316,3 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
 
     else:
-        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
-
-
