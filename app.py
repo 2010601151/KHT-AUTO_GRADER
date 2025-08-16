@@ -1,4 +1,4 @@
-# ---------- app.py (Professional Update, Slide + Bounce Login + Teacher Registration) ----------
+# ---------- app.py (Professional Update with Admin + Teacher Accounts) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -6,6 +6,7 @@ from datetime import datetime
 from PIL import Image
 import pytesseract
 import os
+import hashlib
 from auto_grader import grade_with_answer_key
 
 # ---------- App Config ----------
@@ -16,12 +17,14 @@ st.markdown("""
 <style>
     .stApp { background-color: #ffffff; color:#000000; }
 
+    /* Sidebar fixed background */
     section[data-testid="stSidebar"] {
         background-color: #6a1b9a;
         padding-top: 2rem;
     }
     section[data-testid="stSidebar"] * { color: white !important; }
 
+    /* Centered login card with slide-in + bounce */
     .login-card {
         background-color: #ffffff;
         color: #000000;
@@ -41,6 +44,7 @@ st.markdown("""
         100% { transform: translateX(0); opacity: 1; }
     }
 
+    /* Notification animation */
     .notification {
         color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
         animation: fadeIn 0.6s ease-in-out;
@@ -74,70 +78,75 @@ st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_h
 if os.path.exists("kht_logo.jpeg"):
     st.image("kht_logo.jpeg", width=140)
 
-# ---------- Authentication with Teacher Registration ----------
-USERS_FILE = "teachers.json"
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, "w") as f:
-        json.dump({}, f)
+# ---------- Utility Functions ----------
+TEACHERS_FILE = "teachers.json"
 
-with open(USERS_FILE, "r") as f:
-    teachers = json.load(f)
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
+def load_teachers():
+    if os.path.exists(TEACHERS_FILE):
+        with open(TEACHERS_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_teachers(data):
+    with open(TEACHERS_FILE, "w") as f:
+        json.dump(data, f)
+
+# ---------- Authentication ----------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-    st.session_state.user = None
+    st.session_state.role = None
+    st.session_state.username = None
 
-# Sidebar: Login or Register
-st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-tab = st.sidebar.radio("Account Action", ["Login", "Register"])
+teachers = load_teachers()
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = hash_password("admin2025")  # Change this password for real deployments
 
-if tab == "Register":
-    st.sidebar.subheader("📝 Teacher Registration")
-    new_user = st.sidebar.text_input("Username")
-    new_pass = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Create Account"):
-        if new_user in teachers:
-            st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
-        elif new_user == "" or new_pass == "":
-            st.sidebar.markdown("<p class='notification'>⚠️ Fill both fields.</p>", unsafe_allow_html=True)
-        else:
-            teachers[new_user] = new_pass
-            with open(USERS_FILE, "w") as f:
-                json.dump(teachers, f)
-            st.sidebar.markdown("<p class='notification'>✅ Account created! Now login.</p>", unsafe_allow_html=True)
-
-elif tab == "Login":
-    st.sidebar.subheader("🔐 Teacher Login")
-    user = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
-        if user in teachers and teachers[user] == password:
-            st.session_state.authenticated = True
-            st.session_state.user = user
-            st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
-
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
-
-# Stop app if not authenticated
 if not st.session_state.authenticated:
-    st.stop()
+    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
+    st.sidebar.subheader("🔐 Login")
 
-# Logout button
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.authenticated = False
-    st.session_state.user = None
-    st.experimental_rerun()
+    username_input = st.sidebar.text_input("Username")
+    password_input = st.sidebar.text_input("Password", type="password")
+
+    if st.sidebar.button("Login"):
+        if username_input == ADMIN_USERNAME and hash_password(password_input) == ADMIN_PASSWORD_HASH:
+            st.session_state.authenticated = True
+            st.session_state.role = "Admin"
+            st.session_state.username = ADMIN_USERNAME
+            st.sidebar.success("✅ Admin login successful!")
+        elif username_input in teachers and hash_password(password_input) == teachers[username_input]:
+            st.session_state.authenticated = True
+            st.session_state.role = "Teacher"
+            st.session_state.username = username_input
+            st.sidebar.success(f"✅ Teacher '{username_input}' logged in!")
+        else:
+            st.sidebar.error("❌ Incorrect username or password.")
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+else:
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.authenticated = False
+        st.session_state.role = None
+        st.session_state.username = None
+        st.experimental_rerun()
 
 # ---------- Sidebar Navigation ----------
-page = st.sidebar.selectbox("📂 Select Page", [
+page_options = [
     "📥 Upload Answer Key",
     "📤 Upload & Grade Student Exam",
     "🔍 Search Results (ID or Name)",
     "📊 View Dashboard",
     "📈 Analytics"
-])
+]
+
+# Admin only page
+if st.session_state.role == "Admin":
+    page_options.append("🛠 Manage Teachers")
+
+page = st.sidebar.selectbox("📂 Select Page", page_options)
 
 # ---------- Load/Save Answer Key ----------
 def load_answer_key():
@@ -166,6 +175,37 @@ def color_rows(val):
     else: color = '#f8d7da'
     return f'background-color: {color}'
 
+# ---------- Page: Manage Teachers (Admin Only) ----------
+if page == "🛠 Manage Teachers" and st.session_state.role == "Admin":
+    st.subheader("👤 Admin: Manage Teacher Accounts")
+    st.markdown("### Registered Teachers")
+    
+    if teachers:
+        for username in list(teachers.keys()):
+            col1, col2 = st.columns([3,1])
+            col1.text(username)
+            if col2.button(f"Delete {username}", key=f"del_{username}"):
+                del teachers[username]
+                save_teachers(teachers)
+                st.success(f"✅ Teacher '{username}' deleted successfully.")
+                st.experimental_rerun()
+    else:
+        st.info("No teachers registered yet.")
+    
+    st.markdown("### Add New Teacher")
+    new_user = st.text_input("New Teacher Username", key="new_teacher_user")
+    new_pass = st.text_input("New Teacher Password", type="password", key="new_teacher_pass")
+    if st.button("Add Teacher"):
+        if new_user in teachers:
+            st.warning("Username already exists.")
+        elif new_user and new_pass:
+            teachers[new_user] = hash_password(new_pass)
+            save_teachers(teachers)
+            st.success(f"✅ Teacher '{new_user}' added successfully.")
+            st.experimental_rerun()
+        else:
+            st.warning("Enter both username and password.")
+
 # ---------- Page 1: Upload Answer Key ----------
 if page == "📥 Upload Answer Key":
     st.subheader("Upload Teacher Answer Key (Text or Image)")
@@ -177,14 +217,14 @@ if page == "📥 Upload Answer Key":
             key_text = extract_text_from_image(Image.open(key_file))
         save_answer_key(key_text)
         st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
+        st.success("Answer Key saved successfully!")
 
-# ---------- Page 2: Upload & Grade ----------
+# ---------- Page 2: Upload & Grade Student Exam ----------
 if page == "📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exam for Grading")
     model_answer = load_answer_key()
     if not model_answer:
-        st.markdown("<p class='notification'>⚠️ Please upload the teacher's answer key before grading.</p>", unsafe_allow_html=True)
+        st.warning("⚠️ Please upload the teacher's answer key before grading.")
 
     student_name = st.text_input("Student Name")
     student_id = st.text_input("Student ID")
@@ -199,13 +239,13 @@ if page == "📤 Upload & Grade Student Exam":
 
         if st.button("Grade Answer"):
             if not model_answer:
-                st.markdown("<p class='notification'>⚠️ Cannot grade: Answer key missing.</p>", unsafe_allow_html=True)
+                st.warning("⚠️ Cannot grade: Answer key missing.")
             elif not all([student_name, student_id, department, subject]):
-                st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
+                st.warning("⚠️ Fill all student details before grading.")
             else:
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
-                st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
-                st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
+                st.success(f"Final Score: {score}%")
+                st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
                 for line in feedback.split("\n"):
                     if "✅" in line: cls = "feedback-correct"
                     elif "⚠️" in line: cls = "feedback-partial"
@@ -232,7 +272,7 @@ if page == "📤 Upload & Grade Student Exam":
                 except:
                     df = pd.DataFrame([result])
                 df.to_csv(save_path, index=False)
-                st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
+                st.success("Result saved to dashboard!")
 
 # ---------- Page 3: Search Results ----------
 if page == "🔍 Search Results (ID or Name)":
@@ -248,11 +288,11 @@ if page == "🔍 Search Results (ID or Name)":
             if not filtered.empty:
                 st.dataframe(filtered.style.applymap(color_rows, subset=["Score"]))
             else:
-                st.markdown("<p class='notification'>No results found for this search.</p>", unsafe_allow_html=True)
+                st.info("No results found for this search.")
         else:
             st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
-        st.markdown("<p class='notification'>No results found. Upload student exams first.</p>", unsafe_allow_html=True)
+        st.info("No results found. Upload student exams first.")
 
 # ---------- Page 4: Dashboard ----------
 if page == "📊 View Dashboard":
@@ -264,11 +304,11 @@ if page == "📊 View Dashboard":
         df = pd.read_csv(dashboard_path)
         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
-        st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
+        st.info("No results available for this department/subject.")
 
 # ---------- Page 5: Analytics ----------
 if page == "📈 Analytics":
-    st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
+    st.subheader("📊 Analytics Overview")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
@@ -276,43 +316,35 @@ if page == "📈 Analytics":
     if os.path.exists(analytics_path):
         df = pd.read_csv(analytics_path)
         if df.empty:
-            st.markdown("<p style='color:#000000; font-weight:bold;'>⚠️ No student results yet for this department/subject.</p>", unsafe_allow_html=True)
+            st.warning("⚠️ No student results yet for this department/subject.")
         else:
             import plotly.express as px
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
-            fig_dist = px.histogram(df, x="Score", nbins=10, 
-                                    title="Score Distribution", 
-                                    labels={"Score":"Score (%)"}, 
-                                    color_discrete_sequence=["#6a1b9a"])
+            st.markdown("### Score Distribution")
+            fig_dist = px.histogram(df, x="Score", nbins=10, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist, use_container_width=True)
 
+            # Key metrics
             avg_score = df['Score'].mean()
             max_score = df['Score'].max()
             min_score = df['Score'].min()
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns(3)
-            col1.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Average Score<br>{avg_score:.2f}%</p>", unsafe_allow_html=True)
-            col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
-            col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
+            col1.metric("Average Score", f"{avg_score:.2f}%")
+            col2.metric("Highest Score", f"{max_score}%")
+            col3.metric("Lowest Score", f"{min_score}%")
 
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
+            # Scores Over Time
             df['Timestamp'] = pd.to_datetime(df['Timestamp'])
             df_sorted = df.sort_values('Timestamp')
-            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', 
-                                title="Student Scores Over Time", 
-                                markers=True, color_discrete_sequence=["#6a1b9a"])
+            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', markers=True, color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_trend, use_container_width=True)
 
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
-            pass_threshold = 50
-            df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
-            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', 
-                             color='Result', 
-                             color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
+            # Pass/Fail Pie Chart
+            df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= 50 else 'Fail')
+            fig_pie = px.pie(df, names='Result', color='Result', color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
             st.plotly_chart(fig_pie, use_container_width=True)
 
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
+            # Top Performers
             top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
             st.table(top_df.reset_index(drop=True))
     else:
-        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+        st.info("No results available yet. Upload and grade exams first.")
