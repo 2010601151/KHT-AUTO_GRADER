@@ -1,4 +1,4 @@
-# ---------- app.py (Final Purple & White, Bold Black Notifications, Always Show Upload) ----------
+# ---------- app.py (Professional Update) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -13,28 +13,26 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
 # ---------- Theme ----------
 st.markdown("""
-    <style>
-        .stApp { background-color: #ffffff; color: #000000; }
-        section[data-testid="stSidebar"] { background-color: #6a1b9a; }
-        section[data-testid="stSidebar"] * { color: white !important; }
-        h1, h2, h3, h4 { color: #000000; font-weight: bold; }
-        div.stButton > button {
-            background-color: #6a1b9a; color: white; font-weight: bold;
-            border: none; border-radius: 5px; padding: 0.4em 1em;
-        }
-        div.stButton > button:hover { background-color: #4a0072; color: white; }
-        input, textarea, select { border: 1px solid #6a1b9a !important; color: #ffffff !important; }
-        label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
-        table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
-        thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
-        tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
-        tbody tr:nth-child(even) { background-color: #ffffff !important; }
-        tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
-        .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; }
-        .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
-        .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
-        .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
-    </style>
+<style>
+    .stApp { background-color: #ffffff; color: #000000; }
+    section[data-testid="stSidebar"] { background-color: #6a1b9a; }
+    section[data-testid="stSidebar"] * { color: white !important; }
+    h1, h2, h3, h4 { color: #000000; font-weight: bold; }
+    div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
+    div.stButton > button:hover { background-color: #4a0072; color: white; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color: #000000 !important; font-weight:bold; }
+    label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
+    table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
+    thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
+    tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
+    tbody tr:nth-child(even) { background-color: #ffffff !important; }
+    tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+    .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+    .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; }
+</style>
 """, unsafe_allow_html=True)
 
 # ---------- App Title ----------
@@ -57,9 +55,9 @@ if not st.session_state.authenticated:
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.sidebar.success("Login successful!")
+            st.sidebar.markdown("<p class='notification'>Login successful!</p>", unsafe_allow_html=True)
         else:
-            st.sidebar.error("Incorrect password.")
+            st.sidebar.markdown("<p class='notification'>Incorrect password.</p>", unsafe_allow_html=True)
     st.stop()
 else:
     if st.sidebar.button("🚪 Logout"):
@@ -93,10 +91,10 @@ def extract_text_from_image(image):
     try:
         return pytesseract.image_to_string(image)
     except Exception as e:
-        st.error(f"OCR Error: {e}")
+        st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
         return ""
 
-# ---------- Function to Color Score Rows ----------
+# ---------- Color Score Rows ----------
 def color_rows(val):
     if val >= 85: color = '#d4edda'
     elif val >= 60: color = '#fff3cd'
@@ -113,59 +111,36 @@ if page == "📥 Upload Answer Key":
         else:
             key_text = extract_text_from_image(Image.open(key_file))
         save_answer_key(key_text)
-        st.markdown(f"<div class='ocr-box'><pre style='white-space: pre-wrap;'>{key_text}</pre></div>", unsafe_allow_html=True)
-        st.markdown(
-            "<p style='color: black; font-weight: bold; font-size:16px;'>Answer Key saved successfully!</p>",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
+        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
 # ---------- Page 2: Upload & Grade ----------
 if page == "📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exam for Grading")
-
     model_answer = load_answer_key()
     if not model_answer:
-        st.markdown(
-            "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Please upload the teacher's answer key before grading.</p>",
-            unsafe_allow_html=True
-        )
+        st.markdown("<p class='notification'>⚠️ Please upload the teacher's answer key before grading.</p>", unsafe_allow_html=True)
 
-    # Student details input
     student_name = st.text_input("Student Name")
     student_id = st.text_input("Student ID")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
-
-    # Always show file uploader
     exam_file = st.file_uploader("Upload Student Exam (Image)", type=["jpg", "png", "jpeg"])
 
     if exam_file:
         image = Image.open(exam_file)
         student_answer = extract_text_from_image(image)
-        st.markdown(f"<div class='ocr-box'><pre style='white-space: pre-wrap;'>{student_answer}</pre></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='ocr-box'><pre>{student_answer}</pre></div>", unsafe_allow_html=True)
 
-        # Grade button logic
         if st.button("Grade Answer"):
             if not model_answer:
-                st.markdown(
-                    "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Cannot grade: Answer key missing.</p>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<p class='notification'>⚠️ Cannot grade: Answer key missing.</p>", unsafe_allow_html=True)
             elif not all([student_name, student_id, department, subject]):
-                st.markdown(
-                    "<p style='color: black; font-weight: bold; font-size:16px;'>⚠️ Fill all student details before grading.</p>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
             else:
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
-                st.markdown(
-                    f"<p style='color: black; font-weight: bold; font-size:16px;'>Final Score: {score}%</p>",
-                    unsafe_allow_html=True
-                )
-                st.markdown(
-                    "<p style='color: black; font-weight: bold; font-size:14px;'>Detailed Feedback below:</p>",
-                    unsafe_allow_html=True
-                )
+                st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
+                st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
                 for line in feedback.split("\n"):
                     if "✅" in line: cls = "feedback-correct"
                     elif "⚠️" in line: cls = "feedback-partial"
@@ -186,17 +161,47 @@ if page == "📤 Upload & Grade Student Exam":
 
                 save_path = f"results/{department}/{subject}/results.csv"
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
                 try:
                     df = pd.read_csv(save_path)
                     df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
                 except:
                     df = pd.DataFrame([result])
-
                 df.to_csv(save_path, index=False)
-                st.markdown(
-                    "<p style='color: black; font-weight: bold; font-size:16px;'>Result saved to dashboard!</p>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
 
-# ---------- Pages 3, 4, 5 remain same (can also apply bold-black style to messages) ----------
+# ---------- Page 3: Search Results ----------
+if page == "🔍 Search Results (ID or Name)":
+    st.subheader("Search Student Results")
+    department = st.text_input("Department to Search", value="General").strip().replace("/", "-")
+    subject = st.text_input("Subject to Search", value="Misc").strip().replace("/", "-")
+    search_term = st.text_input("Student ID or Name")
+    search_path = f"results/{department}/{subject}/results.csv"
+    if os.path.exists(search_path):
+        df = pd.read_csv(search_path)
+        if search_term:
+            filtered = df[df.apply(lambda x: search_term.lower() in str(x["Student ID"]).lower() or search_term.lower() in str(x["Name"]).lower(), axis=1)]
+            if not filtered.empty:
+                st.dataframe(filtered.style.applymap(color_rows, subset=["Score"]))
+            else:
+                st.markdown("<p class='notification'>No results found for this search.</p>", unsafe_allow_html=True)
+        else:
+            st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
+    else:
+        st.markdown("<p class='notification'>No results found. Upload student exams first.</p>", unsafe_allow_html=True)
+
+# ---------- Page 4: Dashboard ----------
+if page == "📊 View Dashboard":
+    st.subheader("Department/Subject Dashboard")
+    department = st.text_input("Department", value="General").strip().replace("/", "-")
+    subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+    dashboard_path = f"results/{department}/{subject}/results.csv"
+    if os.path.exists(dashboard_path):
+        df = pd.read_csv(dashboard_path)
+        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
+    else:
+        st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
+
+# ---------- Page 5: Analytics ----------
+if page == "📈 Analytics":
+    st.subheader("Analytics Overview")
+    st.markdown("<p class='notification'>Analytics coming soon. This page will show score distribution, trends, and performance charts.</p>", unsafe_allow_html=True)
