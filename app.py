@@ -115,13 +115,15 @@ st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_h
 if os.path.exists("kht_logo.jpeg"):
     st.image("kht_logo.jpeg", width=140)
 
-# ---------- Authentication ----------
+# ---------- Authentication & Floating Login Fix ----------
 VALID_TEACHER_PASSWORD = "kht2025"
+
+# Initialize session state
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.role = None
 
-# ---------- Floating Login Button ----------
+# ---------- Floating Mobile Login Button ----------
 if not st.session_state.authenticated:
     st.markdown("""
     <div class="floating-login" onclick="document.getElementById('sidebar-login').click();">
@@ -140,21 +142,24 @@ if not st.session_state.authenticated:
     st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
     st.sidebar.subheader("🔐 Teacher Login Required")
     password = st.sidebar.text_input("Enter Teacher Password", type="password")
+    
     if st.sidebar.button("Login"):
         if password == VALID_TEACHER_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
             st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
+            st.experimental_rerun()  # Safely rerun after login
         else:
             st.sidebar.markdown("<p class='notification'>❌ Incorrect password.</p>", unsafe_allow_html=True)
+    
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    st.stop()
-else:
-    if st.sidebar.button("🚪 Logout"):
+    st.stop()  # Stop everything else until logged in
+
+# ---------- Logout Button ----------
+if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated = False
     st.session_state.role = None
-    st.experimental_rerun()  # Make sure nothing else runs after
-    st.stop()  # Stops Streamlit execution in the current run
+    st.experimental_rerun()  # Safely rerun after logout
 
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
@@ -333,5 +338,6 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
 
 
