@@ -8,6 +8,105 @@ import pytesseract
 import os
 from auto_grader import grade_with_answer_key
 
+st.markdown("""
+<style>
+    /* App background and colors */
+    .stApp { background-color: #ffffff; color:#000000; }
+
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #6a1b9a;
+        padding-top: 2rem;
+    }
+    section[data-testid="stSidebar"] * { color: white !important; }
+
+    /* Login card with slide-in and bounce */
+    .login-card {
+        background-color: #ffffff;
+        color: #000000;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+        max-width: 280px;
+        margin: 2rem auto;
+        transform: translateX(-150%);
+        opacity: 0;
+        animation: slideBounce 0.8s forwards ease-out;
+    }
+    @keyframes slideBounce {
+        0% { transform: translateX(-150%); opacity: 0; }
+        70% { transform: translateX(10px); opacity: 1; }
+        100% { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Notifications */
+    .notification {
+        color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
+        animation: fadeIn 0.6s ease-in-out;
+    }
+    @keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
+
+    h1, h2, h3, h4 { color: #000000; font-weight: bold; }
+
+    /* Buttons */
+    div.stButton > button { 
+        background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; 
+    }
+    div.stButton > button:hover { background-color: #4a0072; }
+
+    /* Inputs */
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+    label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
+
+    /* Tables */
+    table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
+    thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
+    tbody tr:nth-child(odd) { background-color: #f3e5f5 !important; }
+    tbody tr:nth-child(even) { background-color: #ffffff !important; }
+    tbody tr td { color: #000000 !important; font-weight: 500 !important; border: 1px solid #ddd !important; }
+
+    /* OCR box */
+    .ocr-box { background-color: #f7f7f7; color: #000000; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+
+    /* Feedback */
+    .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
+    .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+
+    /* Floating login button (mobile, left slide-in + bounce) */
+    @media (max-width: 768px) {
+        .floating-login {
+            display: block;
+            position: fixed;
+            top: 1rem;
+            left: -150px; /* Start off-screen left */
+            background-color: #6a1b9a;
+            color: white;
+            font-weight: bold;
+            padding: 0.8em 1.2em;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            cursor: pointer;
+            animation: slideBounceLeft 1s forwards, bounce 1.2s 1s infinite;
+        }
+        @keyframes slideBounceLeft {
+            0% { left: -150px; opacity:0; }
+            70% { left: 10px; opacity:1; }
+            100% { left: 1rem; opacity:1; }
+        }
+    }
+    @media (min-width: 769px) { .floating-login { display:none; } }
+
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+        40% { transform: translateY(-8px); }
+        60% { transform: translateY(-4px); }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
@@ -247,3 +346,4 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
