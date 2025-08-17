@@ -163,13 +163,12 @@ if page=="📊 Admin Dashboard":
         col1.write(f"Username: {username}")
         col2.write(f"Password Hash: {pwd_hash}")
         if col3.button("Remove", key=f"remove_{username}"):
-            st.session_state.remove_teacher = username  # mark for removal
+            st.session_state.remove_teacher=username
 
-    # Process removal after loop
-    if "remove_teacher" in st.session_state and st.session_state.remove_teacher:
+    if st.session_state.remove_teacher:
         teachers.pop(st.session_state.remove_teacher)
         save_teachers(teachers)
-        st.session_state.remove_teacher = None
+        st.session_state.remove_teacher=None
         st.experimental_rerun()
 
     # Pending Teachers
@@ -179,15 +178,14 @@ if page=="📊 Admin Dashboard":
         col1.write(f"Username: {username}")
         col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
-            st.session_state.approve_teacher = username  # mark for approval
+            st.session_state.approve_teacher=username
 
-    # Process approval after loop
-    if "approve_teacher" in st.session_state and st.session_state.approve_teacher:
-        teachers[st.session_state.approve_teacher] = hash_password(pending_teachers[st.session_state.approve_teacher])
+    if st.session_state.approve_teacher:
+        teachers[st.session_state.approve_teacher]=hash_password(pending_teachers[st.session_state.approve_teacher])
         save_teachers(teachers)
         pending_teachers.pop(st.session_state.approve_teacher)
         save_pending_teachers(pending_teachers)
-        st.session_state.approve_teacher = None
+        st.session_state.approve_teacher=None
         st.experimental_rerun()
 
     # Display Teacher Results
@@ -311,5 +309,3 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
-
-
