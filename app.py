@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Admin + Teacher Accounts) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Sidebar Toggle - Top Left) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -12,12 +12,19 @@ from auto_grader import grade_with_answer_key
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- Theme & Sidebar Animation ----------
+# ---------- Theme & Sidebar Animation + Toggle ----------
 st.markdown("""
 <style>
     .stApp { background-color: #ffffff; color:#000000; }
-    section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
+    section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; transition: all 0.3s ease-in-out; }
     section[data-testid="stSidebar"] * { color: white !important; }
+    .collapsedSidebar { margin-left: -300px !important; }
+    .toggle-btn {
+        position: fixed; top: 15px; left: 15px; z-index: 9999;
+        background-color: #6a1b9a; color: white; border: none;
+        border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: bold;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3); font-size: 14px;
+    }
     .login-card {
         background-color: #ffffff; color: #000000; padding: 1.5rem; border-radius: 10px;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
@@ -34,7 +41,7 @@ st.markdown("""
     h1, h2, h3, h4 { color: #000000; font-weight: bold; }
     div.stButton > button { background-color: #6a1b9a; color: white; font-weight: bold; border: none; border-radius: 5px; padding: 0.4em 1em; }
     div.stButton > button:hover { background-color: #4a0072; color: white; }
-    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #ffffff !important; font-weight:bold; }
+    input, textarea, select { border: 1px solid #6a1b9a !important; color:  #000000 !important; font-weight:bold; }
     label, .stFileUploader label { color: #6a1b9a !important; font-weight: bold; }
     table { border: 2px solid #6a1b9a !important; border-collapse: collapse !important; }
     thead tr th { background-color: #6a1b9a !important; color: white !important; font-weight: bold !important; }
@@ -48,48 +55,31 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------- Sidebar Toggle Button ----------
+if "sidebar_collapsed" not in st.session_state:
+    st.session_state.sidebar_collapsed = False
+
+toggle_label = "☰ Open Sidebar" if st.session_state.sidebar_collapsed else "✖ Close Sidebar"
+
+# Floating button injected with raw HTML
+st.markdown(f"""
+    <button onclick="fetch('/?sidebar_toggle=true')" class="toggle-btn">{toggle_label}</button>
+""", unsafe_allow_html=True)
+
+# Capture toggle event
+if st.query_params.get("sidebar_toggle"):
+    st.session_state.sidebar_collapsed = not st.session_state.sidebar_collapsed
+    st.query_params.clear()
+
+# Hide sidebar if collapsed
+if st.session_state.sidebar_collapsed:
+    st.markdown("<style>section[data-testid='stSidebar'] {margin-left: -300px;}</style>", unsafe_allow_html=True)
+
 # ---------- App Title & Logo ----------
 st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
 if os.path.exists("kht_logo.jpeg"):
     st.image("kht_logo.jpeg", width=140)
 
-# ---------- Helper Functions ----------
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def load_teachers():
-    if os.path.exists("teachers.json"):
-        with open("teachers.json", "r") as f:
-            return json.load(f)
-    return {}
-
-def save_teachers(data):
-    with open("teachers.json", "w") as f:
-        json.dump(data, f)
-
-def load_answer_key():
-    try:
-        with open("answer_key.json", "r") as f:
-            return json.load(f).get("key", "")
-    except:
-        return ""
-
-def save_answer_key(text):
-    with open("answer_key.json", "w") as f:
-        json.dump({"key": text}, f)
-
-def extract_text_from_image(image):
-    try:
-        return pytesseract.image_to_string(image)
-    except Exception as e:
-        st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
-        return ""
-
-def color_rows(val):
-    if val >= 85: color = '#d4edda'
-    elif val >= 60: color = '#fff3cd'
-    else: color = '#f8d7da'
-    return f'background-color: {color}'
 
 # ---------- Authentication ----------
 if "authenticated" not in st.session_state:
@@ -298,3 +288,4 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
