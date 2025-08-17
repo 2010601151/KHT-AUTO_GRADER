@@ -41,6 +41,10 @@ tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px s
 .feedback-correct { background-color:#28a745; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-partial { background-color:#ffc107; color:black; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-wrong { background-color:#dc3545; color:white; font-weight:bold; padding:2px 4px; border-radius:3px; }
+
+    <h1 style='color:#ffffff; text-align:center;'>
+        KHT AI AUTO GRADER
+    </h1>
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,15 +79,7 @@ if "authenticated" not in st.session_state: st.session_state.authenticated=False
 if "role" not in st.session_state: st.session_state.role=None
 if "remove_teacher" not in st.session_state: st.session_state.remove_teacher=None
 if "approve_teacher" not in st.session_state: st.session_state.approve_teacher=None
-# ---------- Sidebar Header ----------
-st.sidebar.markdown(
-    """
-    <h1 style='color:#ffffff; text-align:center;'>
-        KHT AI AUTO GRADER
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
+ ----------
 
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
@@ -321,6 +317,7 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
