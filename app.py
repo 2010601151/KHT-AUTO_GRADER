@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Teacher Dashboard Fix) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Safe Rerun) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -16,49 +16,26 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- CSS Styling ----------
 st.markdown("""
 <style>
-/* Main app background & text */
 .stApp { background-color:#ffffff; color: #000000 !important; }
-
-/* Sidebar background & text */
 section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color:#ffffff !important; }
-
-/* Login card */
 .login-card { background-color:#ffffff; color:#000000 !important; padding: 1.5rem; border-radius: 10px;
 box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
 transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards ease-out; }
-
-/* Animations */
-@keyframes slideBounce { 0% { transform: translateX(-150%); opacity: 0; }
-70% { transform: translateX(10px); opacity: 1; } 100% { transform: translateX(0); opacity: 1; } }
-
-.notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
-animation: fadeIn 0.6s ease-in-out; }
-
+@keyframes slideBounce { 0% { transform: translateX(-150%); opacity: 0; } 70% { transform: translateX(10px); opacity: 1; } 100% { transform: translateX(0); opacity: 1; } }
+.notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px; animation: fadeIn 0.6s ease-in-out; }
 @keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
-
-/* Headings */
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
-
-/* Buttons */
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
-
-/* Inputs, selects, textareas, labels */
-input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
-
-/* Tables */
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
 thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
 tbody tr:nth-child(odd) { background-color:#f3e5f5 !important; }
 tbody tr:nth-child(even) { background-color:#ffffff !important; }
 tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px solid #ddd !important; }
-
-/* OCR box */
 .ocr-box { background-color:#f7f7f7; color:#000000 !important; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
-
-/* Feedback badges */
 .feedback-correct { background-color:#28a745; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-partial { background-color:#ffc107; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-wrong { background-color:#dc3545; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
@@ -96,12 +73,10 @@ if "authenticated" not in st.session_state: st.session_state.authenticated=False
 if "role" not in st.session_state: st.session_state.role=None
 if "remove_teacher" not in st.session_state: st.session_state.remove_teacher=None
 if "approve_teacher" not in st.session_state: st.session_state.approve_teacher=None
+if "rerun_flag" not in st.session_state: st.session_state.rerun_flag=False
 
 # ---------- Sidebar Header ----------
-st.sidebar.markdown(
-    "<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO GRADER</h1>",
-    unsafe_allow_html=True
-)
+st.sidebar.markdown("<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO GRADER</h1>", unsafe_allow_html=True)
 
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
@@ -157,7 +132,7 @@ if login_type=="Teacher":
 if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated=False
     st.session_state.role=None
-    st.experimental_rerun()
+    st.session_state.rerun_flag=True
 
 # ---------- Pages ----------
 if st.session_state.role=="Admin":
@@ -183,7 +158,6 @@ if page=="📊 Admin Dashboard":
     teachers = load_teachers()
     pending_teachers = load_pending_teachers()
 
-    # Approved Teachers
     st.markdown("### ✅ Approved Teachers")
     for username, pwd_hash in teachers.items():
         col1,col2,col3=st.columns([2,2,1])
@@ -193,13 +167,13 @@ if page=="📊 Admin Dashboard":
             st.session_state.remove_teacher=username
 
     if st.session_state.remove_teacher:
-        if st.session_state.remove_teacher in teachers:
-            teachers.pop(st.session_state.remove_teacher)
+        teacher_to_remove = st.session_state.remove_teacher
+        if teacher_to_remove in teachers:
+            teachers.pop(teacher_to_remove)
             save_teachers(teachers)
-        st.session_state.remove_teacher=None
-        st.experimental_rerun()
+        st.session_state.remove_teacher = None
+        st.session_state.rerun_flag=True
 
-    # Pending Teachers
     st.markdown("### ⏳ Pending Teacher Registrations")
     for username, pwd in pending_teachers.items():
         col1,col2,col3=st.columns([2,2,1])
@@ -208,7 +182,6 @@ if page=="📊 Admin Dashboard":
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
 
-    # Safe Approve Logic
     teacher_to_approve = st.session_state.get("approve_teacher", None)
     if teacher_to_approve and teacher_to_approve in pending_teachers:
         teachers[teacher_to_approve] = hash_password(pending_teachers[teacher_to_approve])
@@ -216,9 +189,8 @@ if page=="📊 Admin Dashboard":
         pending_teachers.pop(teacher_to_approve)
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
-        st.experimental_rerun()
+        st.session_state.rerun_flag=True
 
-    # Display Teacher Results
     st.markdown("### 📊 Teacher Results")
     if os.path.exists("results"):
         for dept in os.listdir("results"):
@@ -230,43 +202,6 @@ if page=="📊 Admin Dashboard":
                         st.markdown(f"#### Department/Subject: {dept} / {sub}")
                         df=pd.read_csv(sub_path)
                         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
-
-# ---------- Teacher Dashboard ----------
-if st.session_state.role=="Teacher" and page=="📊 View Dashboard":
-    st.subheader("📊 Teacher Dashboard")
-    if os.path.exists("results"):
-        for dept in os.listdir("results"):
-            dept_path=f"results/{dept}"
-            if os.path.isdir(dept_path):
-                for sub in os.listdir(dept_path):
-                    sub_path=f"{dept_path}/{sub}/results.csv"
-                    if os.path.exists(sub_path):
-                        st.markdown(f"#### Department/Subject: {dept} / {sub}")
-                        df=pd.read_csv(sub_path)
-                        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
-    else:
-        st.markdown("<p class='notification'>No results available yet.</p>", unsafe_allow_html=True)
-
-# ---------- Teacher Analytics ----------
-if st.session_state.role=="Teacher" and page=="📈 Analytics":
-    st.subheader("📈 Teacher Analytics")
-    if os.path.exists("results"):
-        all_scores=[]
-        for dept in os.listdir("results"):
-            dept_path=f"results/{dept}"
-            if os.path.isdir(dept_path):
-                for sub in os.listdir(dept_path):
-                    sub_path=f"{dept_path}/{sub}/results.csv"
-                    if os.path.exists(sub_path):
-                        df=pd.read_csv(sub_path)
-                        all_scores.extend(df['Score'].tolist())
-        if all_scores:
-            fig = px.histogram(all_scores, nbins=10, title="Score Distribution")
-            st.plotly_chart(fig)
-        else:
-            st.markdown("<p class='notification'>No scores to analyze yet.</p>", unsafe_allow_html=True)
-    else:
-        st.markdown("<p class='notification'>No results available yet.</p>", unsafe_allow_html=True)
 
 # ---------- Upload Answer Key ----------
 if page=="📥 Upload Answer Key":
@@ -316,7 +251,6 @@ if page=="📤 Upload & Grade Student Exam":
                     except: df=pd.DataFrame([result])
                     df.to_csv(save_path,index=False)
                     st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
-
     else:  # Batch Mode
         batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
         if batch_files and st.button("Grade All Exams"):
@@ -324,7 +258,7 @@ if page=="📤 Upload & Grade Student Exam":
             for file in batch_files:
                 image = Image.open(file)
                 student_answer = extract_text_from_image(image)
-                student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]  # filename format: ID_Name.jpg
+                student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
                 results.append({"Student ID":student_id,"Name":student_name,"Department":department,
                                 "Subject":subject,"Answer":student_answer,"Score":score,
@@ -336,3 +270,8 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
+# ---------- Safe Experimental Rerun ----------
+if st.session_state.get("rerun_flag", False):
+    st.session_state.rerun_flag=False
+    st.experimental_rerun()
