@@ -12,15 +12,11 @@ from auto_grader import grade_with_answer_key
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- Theme & Sidebar Animation + Toggle ----------
+# ---------- Floating Menu Navigation ----------
 st.markdown("""
 <style>
-/* Hide default Streamlit sidebar toggle */
-[data-testid="collapsedControl"] {
-    display: none;
-}
-
-/* Custom floating sidebar button */
-.custom-sidebar-btn {
+/* Floating menu button */
+.menu-btn {
     position: fixed;
     top: 20px;
     left: 20px;
@@ -35,173 +31,66 @@ st.markdown("""
     z-index: 9999;
     transition: 0.3s;
 }
-.custom-sidebar-btn:hover {
+.menu-btn:hover {
     background: linear-gradient(135deg, #2575fc 0%, #6a11cb 100%);
     transform: scale(1.05);
 }
 
-/* Main app background */
-.stApp { 
-    background-color: #ffffff; 
-    color: #000000; 
-}
-
-/* Sidebar styling */
-section[data-testid="stSidebar"] { 
-    background-color: #6a1b9a; 
-    padding-top: 2rem; 
-    transition: all 0.3s ease-in-out; 
-}
-section[data-testid="stSidebar"] * { 
-    color: white !important; 
-}
-.collapsedSidebar { 
-    margin-left: -300px !important; 
-}
-
-/* Toggle button */
-.toggle-btn {
-    position: fixed; 
-    top: 15px; 
-    left: 15px; 
-    z-index: 9999;
-    background-color: #6a1b9a; 
-    color: white; 
-    border: none;
-    border-radius: 8px; 
-    padding: 8px 14px; 
-    cursor: pointer; 
-    font-weight: bold;
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.3); 
-    font-size: 14px;
-}
-
-/* Login card animation */
-.login-card {
-    background-color: #ffffff; 
-    color: #000000; 
-    padding: 1.5rem; 
+/* Menu container (hidden by default) */
+.menu-nav {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    background-color: #6a1b9a;
+    color: white;
+    padding: 15px 20px;
     border-radius: 10px;
-    box-shadow: 0px 4px 15px rgba(0,0,0,0.3); 
-    max-width: 280px; 
-    margin: 2rem auto;
-    transform: translateX(-150%); 
-    opacity: 0; 
-    animation: slideBounce 0.8s forwards ease-out;
-}
-@keyframes slideBounce {
-    0% { transform: translateX(-150%); opacity: 0; }
-    70% { transform: translateX(10px); opacity: 1; }
-    100% { transform: translateX(0); opacity: 1; }
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+    display: none;
+    flex-direction: column;
+    z-index: 9998;
 }
 
-/* Notifications */
-.notification { 
-    color: black; 
-    font-weight: bold; 
-    font-size: 16px; 
-    padding: 5px 10px; 
-    border-radius: 5px;
-    animation: fadeIn 0.6s ease-in-out; 
+/* Menu items */
+.menu-nav a {
+    color: white;
+    font-weight: bold;
+    text-decoration: none;
+    margin-bottom: 10px;
+    transition: 0.2s;
 }
-@keyframes fadeIn { 
-    from {opacity:0; transform: translateY(-10px);} 
-    to {opacity:1; transform: translateY(0);} 
+.menu-nav a:hover {
+    color: #ffc107;
 }
 
-/* Headings */
-h1, h2, h3, h4 { 
-    color: #000000; 
-    font-weight: bold; 
+/* Animations */
+.menu-nav.show {
+    display: flex;
+    animation: slideIn 0.4s ease forwards;
 }
-
-/* Buttons */
-div.stButton > button { 
-    background-color: #6a1b9a; 
-    color: white; 
-    font-weight: bold; 
-    border: none; 
-    border-radius: 5px; 
-    padding: 0.4em 1em; 
-}
-div.stButton > button:hover { 
-    background-color: #4a0072; 
-    color: white; 
-}
-
-/* Inputs */
-input, textarea, select { 
-    border: 1px solid #6a1b9a !important; 
-    color:  #000000 !important; 
-    font-weight: bold; 
-}
-label, .stFileUploader label { 
-    color: #6a1b9a !important; 
-    font-weight: bold; 
-}
-
-/* Tables */
-table { 
-    border: 2px solid #6a1b9a !important; 
-    border-collapse: collapse !important; 
-}
-thead tr th { 
-    background-color: #6a1b9a !important; 
-    color: white !important; 
-    font-weight: bold !important; 
-}
-tbody tr:nth-child(odd) { 
-    background-color: #f3e5f5 !important; 
-}
-tbody tr:nth-child(even) { 
-    background-color: #ffffff !important; 
-}
-tbody tr td { 
-    color: #000000 !important; 
-    font-weight: 500 !important; 
-    border: 1px solid #ddd !important; 
-}
-
-/* OCR Box */
-.ocr-box { 
-    background-color: #f7f7f7; 
-    color: #000000; 
-    border:1px solid #ccc; 
-    padding:10px; 
-    border-radius:5px; 
-    max-height:300px; 
-    overflow:auto; 
-    font-size:14px; 
-}
-
-/* Feedback labels */
-.feedback-correct { 
-    background-color:#28a745; 
-    color:white; 
-    font-weight:bold; 
-    padding:2px 4px; 
-    border-radius:3px; 
-}
-.feedback-partial { 
-    background-color:#ffc107; 
-    color:black; 
-    font-weight:bold; 
-    padding:2px 4px; 
-    border-radius:3px; 
-}
-.feedback-wrong { 
-    background-color:#dc3545; 
-    color:white; 
-    font-weight:bold; 
-    padding:2px 4px; 
-    border-radius:3px; 
+@keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 </style>
 
-<div class="custom-sidebar-btn" onclick="document.querySelector('[data-testid=\\'stSidebar\\']').classList.toggle('css-1d391kg');">
-    📂 Open Menu
+<!-- Menu button -->
+<div class="menu-btn" onclick="
+    const menu = document.querySelector('.menu-nav');
+    menu.classList.toggle('show');
+">
+    📂 Menu
+</div>
+
+<!-- Menu navigation -->
+<div class="menu-nav">
+    <a href='#home'>Home</a>
+    <a href='#profile'>Profile</a>
+    <a href='#settings'>Settings</a>
+    <a href='#help'>Help</a>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 # ---------- Sidebar Toggle Button ----------
@@ -471,4 +360,5 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
 
