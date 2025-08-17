@@ -18,11 +18,11 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 st.markdown("""
 <style>
 /* Main app background & text */
-.stApp { background-color:#4a0072; color: #000000 !important; }
+.stApp { background-color:#ffffff; color: #000000 !important; }
 
 /* Sidebar background & text */
-section[data-testid="stSidebar"] { background-color: #ffffff; padding-top: 2rem; }
-section[data-testid="stSidebar"] * { color: #000000 !important; }
+section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
+section[data-testid="stSidebar"] * { color: #4a0072 !important; }
 
 /* Login card */
 .login-card { background-color: #4a0072; color: #ffffff !important; padding: 1.5rem; border-radius: 10px;
@@ -300,6 +300,7 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
 
 
 
