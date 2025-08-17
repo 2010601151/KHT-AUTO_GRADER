@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Admin + Teacher Accounts & Teacher Management) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Admin + Teacher Accounts & Notifications - FULL WORKING) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -150,7 +150,6 @@ if login_type == "Teacher":
         if teacher_user in teachers:
             st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
         elif teacher_user and teacher_pass:
-            # Add to pending registration for admin approval
             pending = load_pending_teachers()
             pending[teacher_user] = teacher_pass
             save_pending_teachers(pending)
@@ -170,22 +169,31 @@ if st.sidebar.button("🚪 Logout"):
 
 # ---------- Admin Panel ----------
 if st.session_state.role == "Admin":
-    st.sidebar.markdown("---")
+    pending = load_pending_teachers()
+    pending_count = len(pending)
+    
+    # Sidebar notification
+    if pending_count > 0:
+        st.sidebar.markdown(f"<p class='notification'>🆕 {pending_count} pending teacher registration(s)!</p>", unsafe_allow_html=True)
+    
     admin_page = st.sidebar.selectbox("Admin Panel", ["Dashboard", "Teacher Management", "Pending Registrations", "All Teacher Results"])
-
+    
     # ---------- Teacher Management ----------
     if admin_page == "Teacher Management":
         st.subheader("🧑‍🏫 Manage Teachers")
         teachers = load_teachers()
+        remove_user = None
         if teachers:
             for username, pwd_hash in teachers.items():
-                col1, col2, col3 = st.columns([2, 2, 1])
+                col1, col2, col3 = st.columns([2,2,1])
                 col1.write(f"Username: {username}")
                 col2.write(f"Password Hash: {pwd_hash}")
                 if col3.button(f"Remove", key=username):
-                    teachers.pop(username)
-                    save_teachers(teachers)
-                    st.experimental_rerun()
+                    remove_user = username
+            if remove_user:
+                teachers.pop(remove_user)
+                save_teachers(teachers)
+                st.experimental_rerun()
         else:
             st.info("No teachers registered yet.")
 
@@ -193,22 +201,25 @@ if st.session_state.role == "Admin":
     if admin_page == "Pending Registrations":
         st.subheader("🆕 Pending Teacher Registrations")
         pending = load_pending_teachers()
+        approve_user = None
         if pending:
             for username, password in pending.items():
-                col1, col2, col3 = st.columns([2, 2, 1])
+                col1, col2, col3 = st.columns([2,2,1])
                 col1.write(f"Username: {username}")
                 col2.write(f"Password: {password}")
                 if col3.button(f"Approve", key=username):
-                    teachers = load_teachers()
-                    teachers[username] = hash_password(password)
-                    save_teachers(teachers)
-                    pending.pop(username)
-                    save_pending_teachers(pending)
-                    st.experimental_rerun()
+                    approve_user = username
+            if approve_user:
+                teachers = load_teachers()
+                teachers[approve_user] = hash_password(pending[approve_user])
+                save_teachers(teachers)
+                pending.pop(approve_user)
+                save_pending_teachers(pending)
+                st.experimental_rerun()
         else:
             st.info("No new registrations.")
 
-    # ---------- View All Teacher Results ----------
+    # ---------- All Teacher Results ----------
     if admin_page == "All Teacher Results":
         st.subheader("📊 All Teacher Results")
         result_files = []
