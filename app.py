@@ -13,6 +13,9 @@ from auto_grader import grade_with_answer_key
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- Theme & Sidebar Animation + Toggle ----------
 # ---------- Floating Menu Navigation ----------
+import streamlit as st
+
+# ---------- Floating Menu Navigation ----------
 st.markdown("""
 <style>
 /* Floating menu button */
@@ -20,7 +23,7 @@ st.markdown("""
     position: fixed;
     top: 20px;
     left: 20px;
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    background: linear-gradient(135deg, #6a1b9a 0%, #ffffff 100%);
     color: white;
     padding: 10px 16px;
     border-radius: 30px;
@@ -32,7 +35,8 @@ st.markdown("""
     transition: 0.3s;
 }
 .menu-btn:hover {
-    background: linear-gradient(135deg, #2575fc 0%, #6a11cb 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #6a1b9a 100%);
+    color: #6a1b9a;
     transform: scale(1.05);
 }
 
@@ -51,19 +55,24 @@ st.markdown("""
     z-index: 9998;
 }
 
-/* Menu items */
-.menu-nav a {
-    color: white;
+/* Menu buttons */
+.menu-nav button {
+    background-color: white;
+    color: #6a1b9a;
     font-weight: bold;
-    text-decoration: none;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
     margin-bottom: 10px;
+    cursor: pointer;
     transition: 0.2s;
 }
-.menu-nav a:hover {
-    color: #ffc107;
+.menu-nav button:hover {
+    background-color: #ffc107;
+    color: #6a1b9a;
 }
 
-/* Animations */
+/* Show menu animation */
 .menu-nav.show {
     display: flex;
     animation: slideIn 0.4s ease forwards;
@@ -74,7 +83,6 @@ st.markdown("""
 }
 </style>
 
-<!-- Menu button -->
 <div class="menu-btn" onclick="
     const menu = document.querySelector('.menu-nav');
     menu.classList.toggle('show');
@@ -82,15 +90,33 @@ st.markdown("""
     📂 Menu
 </div>
 
-<!-- Menu navigation -->
 <div class="menu-nav">
-    <a href='#home'>Home</a>
-    <a href='#profile'>Profile</a>
-    <a href='#settings'>Settings</a>
-    <a href='#help'>Help</a>
+    <button onclick='window.parent.postMessage({funcName: \"home\"}, \"*\")'>Home</button>
+    <button onclick='window.parent.postMessage({funcName: \"profile\"}, \"*\")'>Profile</button>
+    <button onclick='window.parent.postMessage({funcName: \"settings\"}, \"*\")'>Settings</button>
+    <button onclick='window.parent.postMessage({funcName: \"help\"}, \"*\")'>Help</button>
 </div>
 """, unsafe_allow_html=True)
 
+# ---------- Handle menu navigation ----------
+menu_choice = st.session_state.get("menu_choice", "home")
+
+# Custom JS messages
+def handle_js_message():
+    if "menu_choice" not in st.session_state:
+        st.session_state.menu_choice = "home"
+
+handle_js_message()
+
+# Display content based on selection
+if menu_choice == "home":
+    st.header("🏠 Home Page")
+elif menu_choice == "profile":
+    st.header("👤 Profile Page")
+elif menu_choice == "settings":
+    st.header("⚙️ Settings Page")
+elif menu_choice == "help":
+    st.header("❓ Help Page")
 
 
 # ---------- Sidebar Toggle Button ----------
@@ -360,5 +386,6 @@ if page == "📈 Analytics":
             st.table(top_df.reset_index(drop=True))
     else:
         st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+
 
 
