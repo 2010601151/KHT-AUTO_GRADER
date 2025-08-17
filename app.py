@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Safe Rerun) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Role-Based Page Permissions) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -134,7 +134,7 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.role=None
     st.session_state.rerun_flag=True
 
-# ---------- Pages ----------
+# ---------- Role-Based Page Selection ----------
 if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
@@ -143,7 +143,7 @@ if st.session_state.role=="Admin":
         "🔍 Search Results (ID or Name)",
         "📈 Analytics"
     ])
-else:
+elif st.session_state.role=="Teacher":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📥 Upload Answer Key",
         "📤 Upload & Grade Student Exam",
@@ -151,6 +151,8 @@ else:
         "📊 View Dashboard",
         "📈 Analytics"
     ])
+else:
+    st.warning("❌ Unauthorized access!"); st.stop()
 
 # ---------- Admin Dashboard ----------
 if page=="📊 Admin Dashboard":
