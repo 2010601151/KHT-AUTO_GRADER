@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Teacher Dashboard Fix) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -13,7 +13,6 @@ import plotly.express as px
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- CSS Styling ----------
 # ---------- CSS Styling ----------
 st.markdown("""
 <style>
@@ -46,7 +45,7 @@ div.stButton > button { background-color:#6a1b9a; color:black !important; font-w
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
 
 /* Inputs, selects, textareas, labels */
-input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
 label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
 
 /* Tables */
@@ -232,6 +231,43 @@ if page=="📊 Admin Dashboard":
                         df=pd.read_csv(sub_path)
                         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
 
+# ---------- Teacher Dashboard ----------
+if st.session_state.role=="Teacher" and page=="📊 View Dashboard":
+    st.subheader("📊 Teacher Dashboard")
+    if os.path.exists("results"):
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        st.markdown(f"#### Department/Subject: {dept} / {sub}")
+                        df=pd.read_csv(sub_path)
+                        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
+    else:
+        st.markdown("<p class='notification'>No results available yet.</p>", unsafe_allow_html=True)
+
+# ---------- Teacher Analytics ----------
+if st.session_state.role=="Teacher" and page=="📈 Analytics":
+    st.subheader("📈 Teacher Analytics")
+    if os.path.exists("results"):
+        all_scores=[]
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        all_scores.extend(df['Score'].tolist())
+        if all_scores:
+            fig = px.histogram(all_scores, nbins=10, title="Score Distribution")
+            st.plotly_chart(fig)
+        else:
+            st.markdown("<p class='notification'>No scores to analyze yet.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results available yet.</p>", unsafe_allow_html=True)
+
 # ---------- Upload Answer Key ----------
 if page=="📥 Upload Answer Key":
     st.subheader("Upload Teacher Answer Key (Text or Image)")
@@ -243,7 +279,7 @@ if page=="📥 Upload Answer Key":
         st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
-# ---------- Upload & Grade Student Exam (Single or Batch) ----------
+# ---------- Upload & Grade Student Exam ----------
 if page=="📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exams for Grading (Single or Multiple)")
     model_answer = load_answer_key()
@@ -300,10 +336,3 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
