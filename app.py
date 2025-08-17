@@ -81,53 +81,55 @@ st.sidebar.markdown("<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO G
 
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
-
-# ---------- Admin Login ----------
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD_HASH=hash_password("admin123")
-if login_type=="Admin":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.sidebar.subheader("🔐 Admin Login")
-    admin_user=st.sidebar.text_input("Username")
-    admin_pass=st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login as Admin"):
-        if admin_user==ADMIN_USERNAME and hash_password(admin_pass)==ADMIN_PASSWORD_HASH:
-            st.session_state.authenticated=True
-            st.session_state.role="Admin"
-            st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    if not st.session_state.authenticated: st.stop()
 
-# ---------- Teacher Login/Register ----------
-if login_type=="Teacher":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.sidebar.subheader("🔐 Teacher Login / Register")
-    teachers = load_teachers()
-    pending_teachers = load_pending_teachers()
-    teacher_user = st.sidebar.text_input("Username")
-    teacher_pass = st.sidebar.text_input("Password", type="password")
-    login_btn = st.sidebar.button("Login as Teacher")
-    register_btn = st.sidebar.button("Register Teacher")
-    if login_btn:
-        if teacher_user in teachers and teachers[teacher_user]==hash_password(teacher_pass):
-            st.session_state.authenticated=True
-            st.session_state.role="Teacher"
-            st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
-    if register_btn:
-        if teacher_user in teachers or teacher_user in pending_teachers:
-            st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
-        elif teacher_user and teacher_pass:
-            pending_teachers[teacher_user]=teacher_pass
-            save_pending_teachers(pending_teachers)
-            st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    if not st.session_state.authenticated: st.stop()
+# ---------- Show Login only if not authenticated ----------
+if not st.session_state.authenticated:
+    if login_type=="Admin":
+        st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.sidebar.subheader("🔐 Admin Login")
+        admin_user=st.sidebar.text_input("Username")
+        admin_pass=st.sidebar.text_input("Password", type="password")
+        if st.sidebar.button("Login as Admin"):
+            if admin_user==ADMIN_USERNAME and hash_password(admin_pass)==ADMIN_PASSWORD_HASH:
+                st.session_state.authenticated=True
+                st.session_state.role="Admin"
+                st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
+            else:
+                st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
+    elif login_type=="Teacher":
+        st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.sidebar.subheader("🔐 Teacher Login / Register")
+        teachers = load_teachers()
+        pending_teachers = load_pending_teachers()
+        teacher_user = st.sidebar.text_input("Username")
+        teacher_pass = st.sidebar.text_input("Password", type="password")
+        login_btn = st.sidebar.button("Login as Teacher")
+        register_btn = st.sidebar.button("Register Teacher")
+        if login_btn:
+            if teacher_user in teachers and teachers[teacher_user]==hash_password(teacher_pass):
+                st.session_state.authenticated=True
+                st.session_state.role="Teacher"
+                st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
+            else:
+                st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+        if register_btn:
+            if teacher_user in teachers or teacher_user in pending_teachers:
+                st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
+            elif teacher_user and teacher_pass:
+                pending_teachers[teacher_user]=teacher_pass
+                save_pending_teachers(pending_teachers)
+                st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
+            else:
+                st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
+# ---------- Stop here if not logged in ----------
+if not st.session_state.authenticated:
+    st.stop()
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
@@ -152,14 +154,12 @@ elif st.session_state.role=="Teacher":
         "📊 View Dashboard",
         "📈 Analytics"
     ])
-else:
-    st.stop()
 
 # ---------- Admin Dashboard ----------
 if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
-    st.subheader("👤 Manage Teachers & Approvals")
     teachers = load_teachers()
     pending_teachers = load_pending_teachers()
+    st.subheader("👤 Manage Teachers & Approvals")
 
     st.markdown("### ✅ Approved Teachers")
     for username, pwd_hash in teachers.items():
@@ -168,7 +168,6 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         col2.write(f"Password Hash: {pwd_hash}")
         if col3.button("Remove", key=f"remove_{username}"):
             st.session_state.remove_teacher=username
-
     if st.session_state.remove_teacher:
         if st.session_state.remove_teacher in teachers:
             teachers.pop(st.session_state.remove_teacher)
@@ -183,7 +182,6 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
-
     teacher_to_approve = st.session_state.get("approve_teacher", None)
     if teacher_to_approve and teacher_to_approve in pending_teachers:
         teachers[teacher_to_approve] = hash_password(pending_teachers[teacher_to_approve])
@@ -206,6 +204,7 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
                         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
 
 # ---------- Teacher & Admin Shared Pages ----------
+# Upload Answer Key
 if page=="📥 Upload Answer Key":
     st.subheader("Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader("Upload Answer Key", type=["txt","jpg","jpeg","png"])
@@ -216,7 +215,7 @@ if page=="📥 Upload Answer Key":
         st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
-# ---------- Upload & Grade Student Exam ----------
+# Upload & Grade Student Exam
 if page=="📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exams for Grading (Single or Multiple)")
     model_answer = load_answer_key()
@@ -272,7 +271,8 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
-# ---------- View Dashboard (Teacher-only) ----------
+
+# View Dashboard (Teacher-only)
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     st.subheader("📊 Your Graded Results")
     if os.path.exists("results"):
@@ -293,7 +293,7 @@ if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     else:
         st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
 
-# ---------- Analytics (Teacher & Admin) ----------
+# Analytics (Teacher & Admin)
 if page=="📈 Analytics":
     st.subheader("📈 Score Analytics")
     if os.path.exists("results"):
@@ -321,4 +321,4 @@ if page=="📈 Analytics":
         else:
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
-        st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+        st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
