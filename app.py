@@ -46,7 +46,7 @@ div.stButton > button { background-color:#6a1b9a; color:black !important; font-w
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
 
 /* Inputs, selects, textareas, labels */
-input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
 
 /* Tables */
@@ -300,6 +300,7 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
 
 
 
