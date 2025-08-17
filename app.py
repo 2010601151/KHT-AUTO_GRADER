@@ -158,38 +158,39 @@ if page=="📊 Admin Dashboard":
 
     # Approved Teachers
     st.markdown("### ✅ Approved Teachers")
-    remove_username = None
     for username, pwd_hash in teachers.items():
         col1,col2,col3=st.columns([2,2,1])
         col1.write(f"Username: {username}")
         col2.write(f"Password Hash: {pwd_hash}")
         if col3.button("Remove", key=f"remove_{username}"):
-            remove_username = username  # mark for removal
+            st.session_state.remove_teacher = username  # mark for removal
 
     # Process removal after loop
-    if remove_username:
-        teachers.pop(remove_username)
+    if "remove_teacher" in st.session_state and st.session_state.remove_teacher:
+        teachers.pop(st.session_state.remove_teacher)
         save_teachers(teachers)
+        st.session_state.remove_teacher = None
         st.experimental_rerun()
 
     # Pending Teachers
     st.markdown("### ⏳ Pending Teacher Registrations")
-    approve_username = None
     for username, pwd in pending_teachers.items():
         col1,col2,col3=st.columns([2,2,1])
         col1.write(f"Username: {username}")
         col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
-            approve_username = username  # mark for approval
+            st.session_state.approve_teacher = username  # mark for approval
 
     # Process approval after loop
-    if approve_username:
-        teachers[approve_username] = hash_password(pending_teachers[approve_username])
+    if "approve_teacher" in st.session_state and st.session_state.approve_teacher:
+        teachers[st.session_state.approve_teacher] = hash_password(pending_teachers[st.session_state.approve_teacher])
         save_teachers(teachers)
-        pending_teachers.pop(approve_username)
+        pending_teachers.pop(st.session_state.approve_teacher)
         save_pending_teachers(pending_teachers)
+        st.session_state.approve_teacher = None
         st.experimental_rerun()
 
+    # Display Teacher Results
     st.markdown("### 📊 Teacher Results")
     if os.path.exists("results"):
         for dept in os.listdir("results"):
@@ -310,4 +311,5 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
 
