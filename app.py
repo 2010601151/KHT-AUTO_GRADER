@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Sidebar Toggle - Top Left) ----------
+# ---------- app.py (Full KHT AI Auto-Grader - Functional, 5 Pages) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -8,14 +8,12 @@ import pytesseract
 import os
 import hashlib
 from auto_grader import grade_with_answer_key
+import plotly.express as px
 
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
-# ---------- Theme & Sidebar Animation + Toggle ----------
-# ---------- Floating Menu Navigation ----------
-import streamlit as st
 
-# ---------- Floating Menu Navigation ----------
+# ---------- CSS & Floating Menu ----------
 st.markdown("""
 <style>
 /* Floating menu button */
@@ -40,7 +38,7 @@ st.markdown("""
     transform: scale(1.05);
 }
 
-/* Menu container (hidden by default) */
+/* Menu container */
 .menu-nav {
     position: fixed;
     top: 70px;
@@ -54,8 +52,6 @@ st.markdown("""
     flex-direction: column;
     z-index: 9998;
 }
-
-/* Menu buttons */
 .menu-nav button {
     background-color: white;
     color: #6a1b9a;
@@ -71,8 +67,6 @@ st.markdown("""
     background-color: #ffc107;
     color: #6a1b9a;
 }
-
-/* Show menu animation */
 .menu-nav.show {
     display: flex;
     animation: slideIn 0.4s ease forwards;
@@ -81,6 +75,28 @@ st.markdown("""
     from { transform: translateX(-20px); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
+
+/* Notifications */
+.notification {
+    font-weight: bold;
+    color: #333333;
+    margin: 5px 0;
+}
+
+/* OCR box */
+.ocr-box {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 10px 0;
+    white-space: pre-wrap;
+    font-family: monospace;
+}
+
+/* Feedback */
+.feedback-correct {color: green; font-weight:bold;}
+.feedback-partial {color: orange; font-weight:bold;}
+.feedback-wrong {color: red; font-weight:bold;}
 </style>
 
 <div class="menu-btn" onclick="
@@ -91,55 +107,21 @@ st.markdown("""
 </div>
 
 <div class="menu-nav">
-    <button onclick='window.parent.postMessage({funcName: \"home\"}, \"*\")'>Home</button>
-    <button onclick='window.parent.postMessage({funcName: \"profile\"}, \"*\")'>Profile</button>
-    <button onclick='window.parent.postMessage({funcName: \"settings\"}, \"*\")'>Settings</button>
-    <button onclick='window.parent.postMessage({funcName: \"help\"}, \"*\")'>Help</button>
+    <button onclick='window.parent.postMessage({funcName: "home"}, "*")'>Home</button>
+    <button onclick='window.parent.postMessage({funcName: "profile"}, "*")'>Profile</button>
+    <button onclick='window.parent.postMessage({funcName: "settings"}, "*")'>Settings</button>
+    <button onclick='window.parent.postMessage({funcName: "help"}, "*")'>Help</button>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- Handle menu navigation ----------
-menu_choice = st.session_state.get("menu_choice", "home")
-
-# Custom JS messages
-def handle_js_message():
-    if "menu_choice" not in st.session_state:
-        st.session_state.menu_choice = "home"
-
-handle_js_message()
-
-# Display content based on selection
-if menu_choice == "home":
-    st.header("🏠 Home Page")
-elif menu_choice == "profile":
-    st.header("👤 Profile Page")
-elif menu_choice == "settings":
-    st.header("⚙️ Settings Page")
-elif menu_choice == "help":
-    st.header("❓ Help Page")
-
-
-# ---------- Sidebar Toggle Button ----------
+# ---------- Session Defaults ----------
+if "menu_choice" not in st.session_state:
+    st.session_state.menu_choice = "home"
 if "sidebar_collapsed" not in st.session_state:
     st.session_state.sidebar_collapsed = False
-
-toggle_label = "☰ Open Sidebar" if st.session_state.sidebar_collapsed else "✖ Close Sidebar"
-
-st.markdown(f"""
-    <button onclick="fetch('/?sidebar_toggle=true')" class="toggle-btn">{toggle_label}</button>
-""", unsafe_allow_html=True)
-
-if st.query_params.get("sidebar_toggle"):
-    st.session_state.sidebar_collapsed = not st.session_state.sidebar_collapsed
-    st.query_params.clear()
-
-if st.session_state.sidebar_collapsed:
-    st.markdown("<style>section[data-testid='stSidebar'] {margin-left: -300px;}</style>", unsafe_allow_html=True)
-
-# ---------- App Title & Logo ----------
-st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
-if os.path.exists("kht_logo.jpeg"):
-    st.image("kht_logo.jpeg", width=140)
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+    st.session_state.role = None
 
 # ---------- Helper Functions ----------
 def hash_password(password):
@@ -174,24 +156,16 @@ def extract_text_from_image(image):
         return ""
 
 def color_rows(val):
-    if val >= 85: color = '#d4edda'
-    elif val >= 60: color = '#fff3cd'
-    else: color = '#f8d7da'
-    return f'background-color: {color}'
+    if val >= 85: return 'background-color: #d4edda'
+    elif val >= 60: return 'background-color: #fff3cd'
+    else: return 'background-color: #f8d7da'
 
 # ---------- Authentication ----------
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-    st.session_state.role = None
-
 login_type = st.sidebar.radio("Login as:", ["Admin", "Teacher"])
-
-# ---------- Admin Login ----------
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = hash_password("admin123")
 
-if login_type == "Admin":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
+def admin_login():
     st.sidebar.subheader("🔐 Admin Login")
     admin_user = st.sidebar.text_input("Username")
     admin_pass = st.sidebar.text_input("Password", type="password")
@@ -199,50 +173,48 @@ if login_type == "Admin":
         if admin_user == ADMIN_USERNAME and hash_password(admin_pass) == ADMIN_PASSWORD_HASH:
             st.session_state.authenticated = True
             st.session_state.role = "Admin"
-            st.sidebar.markdown("<p class='notification'>✅ Admin login successful!</p>", unsafe_allow_html=True)
+            st.sidebar.success("✅ Admin login successful!")
         else:
-            st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+            st.sidebar.error("❌ Incorrect admin credentials")
     if not st.session_state.authenticated:
         st.stop()
 
-# ---------- Teacher Login/Register ----------
-if login_type == "Teacher":
-    st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
+def teacher_login():
     st.sidebar.subheader("🔐 Teacher Login / Register")
     teachers = load_teachers()
     teacher_user = st.sidebar.text_input("Username")
     teacher_pass = st.sidebar.text_input("Password", type="password")
     login_btn = st.sidebar.button("Login as Teacher")
     register_btn = st.sidebar.button("Register Teacher")
-    
     if login_btn:
         if teacher_user in teachers and teachers[teacher_user] == hash_password(teacher_pass):
             st.session_state.authenticated = True
             st.session_state.role = "Teacher"
-            st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
+            st.sidebar.success("✅ Login successful!")
         else:
-            st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
-    
+            st.sidebar.error("❌ Incorrect username or password")
     if register_btn:
         if teacher_user in teachers:
-            st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
+            st.sidebar.error("❌ Username already exists")
         elif teacher_user and teacher_pass:
             teachers[teacher_user] = hash_password(teacher_pass)
             save_teachers(teachers)
-            st.sidebar.markdown("<p class='notification'>✅ Teacher registered successfully!</p>", unsafe_allow_html=True)
+            st.sidebar.success("✅ Teacher registered successfully!")
         else:
-            st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
-
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+            st.sidebar.warning("⚠️ Enter username and password to register")
     if not st.session_state.authenticated:
         st.stop()
+
+if login_type == "Admin":
+    admin_login()
+else:
+    teacher_login()
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated = False
     st.session_state.role = None
-    st.rerun()
+    st.experimental_rerun()
 
 # ---------- Sidebar Navigation ----------
 page = st.sidebar.selectbox("📂 Select Page", [
@@ -253,8 +225,8 @@ page = st.sidebar.selectbox("📂 Select Page", [
     "📈 Analytics"
 ])
 
-# ---------- Page 1: Upload Answer Key ----------
-if page == "📥 Upload Answer Key":
+# ---------- Pages Functions ----------
+def page_upload_answer_key():
     st.subheader("Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader("Upload Answer Key", type=["txt", "jpg", "jpeg", "png"])
     if key_file:
@@ -264,14 +236,14 @@ if page == "📥 Upload Answer Key":
             key_text = extract_text_from_image(Image.open(key_file))
         save_answer_key(key_text)
         st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
+        st.success("Answer Key saved successfully!")
 
-# ---------- Page 2: Upload & Grade Student Exam ----------
-if page == "📤 Upload & Grade Student Exam":
+def page_upload_grade():
     st.subheader("Upload Student Exam for Grading")
     model_answer = load_answer_key()
     if not model_answer:
-        st.markdown("<p class='notification'>⚠️ Please upload the teacher's answer key before grading.</p>", unsafe_allow_html=True)
+        st.warning("⚠️ Please upload the teacher's answer key before grading.")
+        return
 
     student_name = st.text_input("Student Name")
     student_id = st.text_input("Student ID")
@@ -280,41 +252,34 @@ if page == "📤 Upload & Grade Student Exam":
     exam_file = st.file_uploader("Upload Student Exam (Image)", type=["jpg", "png", "jpeg"])
 
     if exam_file:
-        image = Image.open(exam_file)
-        student_answer = extract_text_from_image(image)
+        student_answer = extract_text_from_image(Image.open(exam_file))
         st.markdown(f"<div class='ocr-box'><pre>{student_answer}</pre></div>", unsafe_allow_html=True)
-
         if st.button("Grade Answer"):
-            if not model_answer:
-                st.markdown("<p class='notification'>⚠️ Cannot grade: Answer key missing.</p>", unsafe_allow_html=True)
-            elif not all([student_name, student_id, department, subject]):
-                st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
-            else:
-                score, feedback = grade_with_answer_key(model_answer, student_answer)
-                st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
-                st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
-                for line in feedback.split("\n"):
-                    cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
-                    st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+            if not all([student_name, student_id, department, subject]):
+                st.warning("⚠️ Fill all student details before grading.")
+                return
+            score, feedback = grade_with_answer_key(model_answer, student_answer)
+            st.success(f"Final Score: {score}%")
+            st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
+            for line in feedback.split("\n"):
+                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+            result = {
+                "Student ID": student_id, "Name": student_name, "Department": department,
+                "Subject": subject, "Answer": student_answer, "Score": score,
+                "Feedback": feedback, "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+            except:
+                df = pd.DataFrame([result])
+            df.to_csv(save_path, index=False)
+            st.success("Result saved to dashboard!")
 
-                result = {
-                    "Student ID": student_id, "Name": student_name, "Department": department,
-                    "Subject": subject, "Answer": student_answer, "Score": score,
-                    "Feedback": feedback, "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-
-                save_path = f"results/{department}/{subject}/results.csv"
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                try:
-                    df = pd.read_csv(save_path)
-                    df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-                except:
-                    df = pd.DataFrame([result])
-                df.to_csv(save_path, index=False)
-                st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
-
-# ---------- Page 3: Search Results ----------
-if page == "🔍 Search Results (ID or Name)":
+def page_search_results():
     st.subheader("Search Student Results")
     department = st.text_input("Department to Search", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject to Search", value="Misc").strip().replace("/", "-")
@@ -327,14 +292,13 @@ if page == "🔍 Search Results (ID or Name)":
             if not filtered.empty:
                 st.dataframe(filtered.style.applymap(color_rows, subset=["Score"]))
             else:
-                st.markdown("<p class='notification'>No results found for this search.</p>", unsafe_allow_html=True)
+                st.warning("No results found for this search.")
         else:
             st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
-        st.markdown("<p class='notification'>No results found. Upload student exams first.</p>", unsafe_allow_html=True)
+        st.warning("No results found. Upload student exams first.")
 
-# ---------- Page 4: Dashboard ----------
-if page == "📊 View Dashboard":
+def page_dashboard():
     st.subheader("Department/Subject Dashboard")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
@@ -343,49 +307,48 @@ if page == "📊 View Dashboard":
         df = pd.read_csv(dashboard_path)
         st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else:
-        st.markdown("<p class='notification'>No results available for this department/subject.</p>", unsafe_allow_html=True)
+        st.warning("No results available for this department/subject.")
 
-# ---------- Page 5: Analytics ----------
-if page == "📈 Analytics":
-    st.markdown("<h2 style='color:#000000; font-weight:bold;'>📊 Analytics Overview</h2>", unsafe_allow_html=True)
+def page_analytics():
+    st.subheader("📊 Analytics Overview")
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     analytics_path = f"results/{department}/{subject}/results.csv"
-
     if os.path.exists(analytics_path):
         df = pd.read_csv(analytics_path)
         if df.empty:
-            st.markdown("<p style='color:#000000; font-weight:bold;'>⚠️ No student results yet for this department/subject.</p>", unsafe_allow_html=True)
-        else:
-            import plotly.express as px
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Distribution</h3>", unsafe_allow_html=True)
-            fig_dist = px.histogram(df, x="Score", nbins=10, title="Score Distribution", labels={"Score":"Score (%)"}, color_discrete_sequence=["#6a1b9a"])
-            st.plotly_chart(fig_dist, use_container_width=True)
-
-            avg_score, max_score, min_score = df['Score'].mean(), df['Score'].max(), df['Score'].min()
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Key Metrics</h3>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns(3)
-            col1.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Average Score<br>{avg_score:.2f}%</p>", unsafe_allow_html=True)
-            col2.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Highest Score<br>{max_score}%</p>", unsafe_allow_html=True)
-            col3.markdown(f"<p style='color:#000000; font-weight:bold; font-size:18px;'>Lowest Score<br>{min_score}%</p>", unsafe_allow_html=True)
-
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Score Trend Over Time</h3>", unsafe_allow_html=True)
-            df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-            df_sorted = df.sort_values('Timestamp')
-            fig_trend = px.line(df_sorted, x='Timestamp', y='Score', title="Student Scores Over Time", markers=True, color_discrete_sequence=["#6a1b9a"])
-            st.plotly_chart(fig_trend, use_container_width=True)
-
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Pass / Fail Breakdown</h3>", unsafe_allow_html=True)
-            pass_threshold = 50
-            df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= pass_threshold else 'Fail')
-            fig_pie = px.pie(df, names='Result', title='Pass vs Fail', color='Result', color_discrete_map={'Pass':'#28a745', 'Fail':'#dc3545'})
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-            st.markdown("<h3 style='color:#000000; font-weight:bold;'>Top Performers</h3>", unsafe_allow_html=True)
-            top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID', 'Name', 'Score']]
-            st.table(top_df.reset_index(drop=True))
+            st.warning("⚠️ No student results yet.")
+            return
+        st.markdown("### Score Distribution")
+        fig_dist = px.histogram(df, x="Score", nbins=10, color_discrete_sequence=["#6a1b9a"])
+        st.plotly_chart(fig_dist, use_container_width=True)
+        avg_score, max_score, min_score = df['Score'].mean(), df['Score'].max(), df['Score'].min()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Average Score", f"{avg_score:.2f}%")
+        col2.metric("Highest Score", f"{max_score}%")
+        col3.metric("Lowest Score", f"{min_score}%")
+        st.markdown("### Score Trend Over Time")
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+        df_sorted = df.sort_values('Timestamp')
+        fig_trend = px.line(df_sorted, x='Timestamp', y='Score', markers=True, color_discrete_sequence=["#6a1b9a"])
+        st.plotly_chart(fig_trend, use_container_width=True)
+        st.markdown("### Pass / Fail Breakdown")
+        df['Result'] = df['Score'].apply(lambda x: 'Pass' if x >= 50 else 'Fail')
+        fig_pie = px.pie(df, names='Result', color='Result', color_discrete_map={'Pass':'#28a745','Fail':'#dc3545'})
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.markdown("### Top Performers")
+        top_df = df.sort_values('Score', ascending=False).head(10)[['Student ID','Name','Score']]
+        st.table(top_df.reset_index(drop=True))
     else:
-        st.markdown("<p style='color:#000000; font-weight:bold;'>ℹ️ No results available for this department/subject yet. Upload and grade exams first.</p>", unsafe_allow_html=True)
+        st.warning("No results available yet.")
 
+# ---------- Page Router ----------
+pages = {
+    "📥 Upload Answer Key": page_upload_answer_key,
+    "📤 Upload & Grade Student Exam": page_upload_grade,
+    "🔍 Search Results (ID or Name)": page_search_results,
+    "📊 View Dashboard": page_dashboard,
+    "📈 Analytics": page_analytics
+}
 
-
+pages[page]()
