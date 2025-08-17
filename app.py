@@ -16,7 +16,7 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- CSS Styling ----------
 st.markdown("""
 <style>
-.stApp { background-color: #ffffff; color:#000000; }
+.stApp { background-color: #ffffff; color:#800080; }
 section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color: white !important; }
 .login-card { background-color: #ffffff; color: #000000; padding: 1.5rem; border-radius: 10px;
@@ -30,7 +30,7 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4 { color:#000000; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:white; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:white; }
-input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#6a1b9a !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; }
 thead tr th { background-color:#6a1b9a !important; color:white !important; font-weight:bold !important; }
@@ -309,3 +309,4 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
