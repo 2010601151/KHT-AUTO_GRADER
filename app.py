@@ -81,6 +81,13 @@ st.sidebar.markdown(
     <h1 style='color:#ffffff; text-align:center;'>
         KHT AI AUTO GRADER
     </h1>
+    """,
+    unsafe_allow_html=True
+)
+
+# ---------- Login ----------
+login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
+
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
 
@@ -314,6 +321,7 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
