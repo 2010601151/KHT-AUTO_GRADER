@@ -185,14 +185,15 @@ if page=="📊 Admin Dashboard":
         col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
-
-    if st.session_state.approve_teacher:
-        teachers[st.session_state.approve_teacher]=hash_password(pending_teachers[st.session_state.approve_teacher])
+if st.session_state.approve_teacher:
+    teacher_to_approve = st.session_state.approve_teacher
+    if teacher_to_approve in pending_teachers:
+        teachers[teacher_to_approve] = hash_password(pending_teachers[teacher_to_approve])
         save_teachers(teachers)
-        pending_teachers.pop(st.session_state.approve_teacher)
+        pending_teachers.pop(teacher_to_approve)
         save_pending_teachers(pending_teachers)
-        st.session_state.approve_teacher=None
-        st.experimental_rerun()
+    st.session_state.approve_teacher = None
+    st.experimental_rerun()
 
     # Display Teacher Results
     st.markdown("### 📊 Teacher Results")
@@ -275,3 +276,4 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
