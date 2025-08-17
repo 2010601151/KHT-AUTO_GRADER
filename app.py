@@ -17,9 +17,9 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color:#800080; }
-section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
+section[data-testid="stSidebar"] { background-color:#800080; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color: white !important; }
-.login-card { background-color: #ffffff; color: #000000; padding: 1.5rem; border-radius: 10px;
+.login-card { background-color: #000000; color: #ffffff; padding: 1.5rem; border-radius: 10px;
 box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
 transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards ease-out; }
 @keyframes slideBounce { 0% { transform: translateX(-150%); opacity: 0; }
@@ -309,4 +309,5 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
 
