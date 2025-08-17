@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader - Fully Fixed) ----------
+# ---------- app.py (Full KHT AI Auto-Grader - Admin + Teacher) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -8,11 +8,12 @@ import pytesseract
 import os
 import hashlib
 from auto_grader import grade_with_answer_key
+import plotly.express as px
 
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- Theme ----------
+# ---------- CSS Styling ----------
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color:#000000; }
@@ -29,7 +30,7 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4 { color:#000000; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:white; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:white; }
-input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
 label,.stFileUploader label { color:#6a1b9a !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; }
 thead tr th { background-color:#6a1b9a !important; color:white !important; font-weight:bold !important; }
@@ -74,11 +75,6 @@ if "authenticated" not in st.session_state: st.session_state.authenticated=False
 if "role" not in st.session_state: st.session_state.role=None
 if "remove_teacher" not in st.session_state: st.session_state.remove_teacher=None
 if "approve_teacher" not in st.session_state: st.session_state.approve_teacher=None
-if "reload_flag" not in st.session_state: st.session_state.reload_flag=False
-
-def safe_rerun():
-    st.session_state.reload_flag = not st.session_state.reload_flag
-    st.experimental_rerun()
 
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
@@ -116,7 +112,8 @@ if login_type=="Teacher":
             st.session_state.authenticated=True
             st.session_state.role="Teacher"
             st.sidebar.markdown("<p class='notification'>✅ Login successful!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
     if register_btn:
         if teacher_user in teachers or teacher_user in pending_teachers:
             st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
@@ -124,7 +121,8 @@ if login_type=="Teacher":
             pending_teachers[teacher_user]=teacher_pass
             save_pending_teachers(pending_teachers)
             st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
-        else: st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
 
@@ -132,9 +130,9 @@ if login_type=="Teacher":
 if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated=False
     st.session_state.role=None
-    safe_rerun()
+    st.experimental_rerun()
 
-# ---------- Page Selection ----------
+# ---------- Pages ----------
 if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
@@ -154,10 +152,9 @@ else:
 
 # ---------- Admin Dashboard ----------
 if page=="📊 Admin Dashboard":
+    st.subheader("👤 Manage Teachers & Approvals")
     teachers = load_teachers()
     pending_teachers = load_pending_teachers()
-    st.subheader("👤 Manage Teachers & Approvals")
-
     st.markdown("### ✅ Approved Teachers")
     for username, pwd_hash in teachers.items():
         col1,col2,col3=st.columns([2,2,1])
@@ -169,23 +166,32 @@ if page=="📊 Admin Dashboard":
         teachers.pop(st.session_state.remove_teacher)
         save_teachers(teachers)
         st.session_state.remove_teacher=None
-        safe_rerun()
-
+        st.experimental_rerun()
     st.markdown("### ⏳ Pending Teacher Registrations")
     for username, pwd in pending_teachers.items():
         col1,col2,col3=st.columns([2,2,1])
         col1.write(f"Username: {username}")
-        col2.write(f"Password: {pwd}")
-        if col2.button("Reject", key=f"reject_{username}"):
-            pending_teachers.pop(username)
-            save_pending_teachers(pending_teachers)
-            safe_rerun()
+        col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
-            teachers[username]=hash_password(pwd)
-            save_teachers(teachers)
-            pending_teachers.pop(username)
-            save_pending_teachers(pending_teachers)
-            safe_rerun()
+            st.session_state.approve_teacher=username
+    if st.session_state.approve_teacher:
+        teachers[st.session_state.approve_teacher]=hash_password(pending_teachers[st.session_state.approve_teacher])
+        save_teachers(teachers)
+        pending_teachers.pop(st.session_state.approve_teacher)
+        save_pending_teachers(pending_teachers)
+        st.session_state.approve_teacher=None
+        st.experimental_rerun()
+    st.markdown("### 📊 Teacher Results")
+    if os.path.exists("results"):
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        st.markdown(f"#### Department/Subject: {dept} / {sub}")
+                        df=pd.read_csv(sub_path)
+                        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
 
 # ---------- Upload Answer Key ----------
 if page=="📥 Upload Answer Key":
@@ -252,7 +258,7 @@ if page=="🔍 Search Results (ID or Name)":
         else: st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
     else: st.markdown("<p class='notification'>No results found.</p>", unsafe_allow_html=True)
 
-# ---------- Dashboard ----------
+# ---------- View Dashboard ----------
 if page=="📊 View Dashboard":
     st.subheader("Department/Subject Dashboard")
     department = st.text_input("Department", value="General").strip().replace("/","-")
@@ -273,7 +279,6 @@ if page=="📈 Analytics":
         df=pd.read_csv(analytics_path)
         if df.empty: st.markdown("<p>⚠️ No student results yet.</p>", unsafe_allow_html=True)
         else:
-            import plotly.express as px
             st.markdown("<h3>Score Distribution</h3>", unsafe_allow_html=True)
             fig_dist = px.histogram(df,x="Score",nbins=10,color_discrete_sequence=["#6a1b9a"])
             st.plotly_chart(fig_dist,use_container_width=True)
@@ -292,6 +297,7 @@ if page=="📈 Analytics":
             fig_pie=px.pie(df,names='Result',color='Result',color_discrete_map={'Pass':'#28a745','Fail':'#dc3545'})
             st.plotly_chart(fig_pie,use_container_width=True)
             st.markdown("<h3>Top Performers</h3>", unsafe_allow_html=True)
-            top_df=df.sort_values('Score',ascending=False).head(10)[['Student ID','Name','Score']]
-            st.table(top_df.reset_index(drop=True))
-    else: st.markdown("<p>⚠️ No results available to analyze.</p>", unsafe_allow_html=True)
+            top_df=df.sort_values('Score',ascending=False).head(5)
+            st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
+    else:
+        st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
