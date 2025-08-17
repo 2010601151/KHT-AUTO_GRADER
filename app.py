@@ -81,8 +81,6 @@ st.sidebar.markdown("<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO G
 
 # ---------- Login ----------
 login_type = st.sidebar.radio("Login as:", ["Admin","Teacher"])
-
-# ---------- Admin Login ----------
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD_HASH=hash_password("admin123")
 
@@ -127,7 +125,7 @@ if not st.session_state.authenticated:
             else:
                 st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    st.stop()  # stop rendering everything else until login
+    st.stop()  # prevent loading other pages until login
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
@@ -167,14 +165,12 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         col2.write(f"Password Hash: {pwd_hash}")
         if col3.button("Remove", key=f"remove_{username}"):
             st.session_state.remove_teacher=username
-
     if st.session_state.remove_teacher:
         if st.session_state.remove_teacher in teachers:
             teachers.pop(st.session_state.remove_teacher)
             save_teachers(teachers)
         st.session_state.remove_teacher=None
         st.experimental_rerun()
-
     st.markdown("### ⏳ Pending Teacher Registrations")
     for username, pwd in pending_teachers.items():
         col1,col2,col3=st.columns([2,2,1])
@@ -182,7 +178,6 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         col2.write(f"Password Hash: {hash_password(pwd)}")
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
-
     teacher_to_approve = st.session_state.get("approve_teacher", None)
     if teacher_to_approve and teacher_to_approve in pending_teachers:
         teachers[teacher_to_approve] = hash_password(pending_teachers[teacher_to_approve])
@@ -192,19 +187,7 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         st.session_state.approve_teacher = None
         st.experimental_rerun()
 
-    st.markdown("### 📊 Teacher Results")
-    if os.path.exists("results"):
-        for dept in os.listdir("results"):
-            dept_path=f"results/{dept}"
-            if os.path.isdir(dept_path):
-                for sub in os.listdir(dept_path):
-                    sub_path=f"{dept_path}/{sub}/results.csv"
-                    if os.path.exists(sub_path):
-                        st.markdown(f"#### Department/Subject: {dept} / {sub}")
-                        df=pd.read_csv(sub_path)
-                        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
-
-# ---------- Teacher & Admin Shared Pages ----------
+# ---------- Teacher/Admin Shared Pages ----------
 if page=="📥 Upload Answer Key":
     st.subheader("Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader("Upload Answer Key", type=["txt","jpg","jpeg","png"])
@@ -220,11 +203,9 @@ if page=="📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exams for Grading (Single or Multiple)")
     model_answer = load_answer_key()
     if not model_answer: st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
-
     batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
     department = st.text_input("Department", value="General").strip().replace("/","-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/","-")
-
     if not batch_mode:
         student_name = st.text_input("Student Name")
         student_id = st.text_input("Student ID")
@@ -252,7 +233,7 @@ if page=="📤 Upload & Grade Student Exam":
                     except: df=pd.DataFrame([result])
                     df.to_csv(save_path,index=False)
                     st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
-    else:  # Batch Mode
+    else:
         batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
         if batch_files and st.button("Grade All Exams"):
             results=[]
@@ -272,7 +253,7 @@ if page=="📤 Upload & Grade Student Exam":
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
 
-# ---------- View Dashboard (Teacher-only) ----------
+# ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     st.subheader("📊 Your Graded Results")
     if os.path.exists("results"):
@@ -293,7 +274,7 @@ if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     else:
         st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
 
-# ---------- Analytics (Teacher & Admin) ----------
+# ---------- Analytics ----------
 if page=="📈 Analytics":
     st.subheader("📈 Score Analytics")
     if os.path.exists("results"):
@@ -310,11 +291,9 @@ if page=="📈 Analytics":
                         all_results.append(df)
         if all_results:
             df_all = pd.concat(all_results, ignore_index=True)
-            # Average Score by Department
             avg_dept = df_all.groupby("Department")["Score"].mean().reset_index()
             fig1 = px.bar(avg_dept, x="Department", y="Score", title="Average Score by Department", text="Score")
             st.plotly_chart(fig1, use_container_width=True)
-            # Average Score by Subject
             avg_sub = df_all.groupby("Subject")["Score"].mean().reset_index()
             fig2 = px.bar(avg_sub, x="Subject", y="Score", title="Average Score by Subject", text="Score")
             st.plotly_chart(fig2, use_container_width=True)
