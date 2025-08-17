@@ -1,4 +1,4 @@
-# ---------- app.py (KHT AI Auto-Grader Full App with Admin + Teacher) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -78,11 +78,7 @@ if "approve_teacher" not in st.session_state: st.session_state.approve_teacher=N
 
 # ---------- Sidebar Header ----------
 st.sidebar.markdown(
-    """
-    <h1 style='color:#ffffff; text-align:center;'>
-        KHT AI AUTO GRADER
-    </h1>
-    """,
+    "<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO GRADER</h1>",
     unsafe_allow_html=True
 )
 
@@ -136,85 +132,146 @@ if login_type=="Teacher":
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
     if not st.session_state.authenticated: st.stop()
 
-# ---------- Admin Panel ----------
+# ---------- Logout ----------
+if st.sidebar.button("🚪 Logout"):
+    st.session_state.authenticated=False
+    st.session_state.role=None
+    st.experimental_rerun()
+
+# ---------- Pages ----------
 if st.session_state.role=="Admin":
-    st.subheader("📋 Admin Dashboard")
+    page = st.sidebar.selectbox("📂 Select Page", [
+        "📊 Admin Dashboard",
+        "📥 Upload Answer Key",
+        "📤 Upload & Grade Student Exam",
+        "🔍 Search Results (ID or Name)",
+        "📈 Analytics"
+    ])
+else:
+    page = st.sidebar.selectbox("📂 Select Page", [
+        "📥 Upload Answer Key",
+        "📤 Upload & Grade Student Exam",
+        "🔍 Search Results (ID or Name)",
+        "📊 View Dashboard",
+        "📈 Analytics"
+    ])
 
-    # Approve Pending Teachers
-    st.markdown("### 👥 Pending Teacher Approvals")
-    pending_teachers=load_pending_teachers()
-    teachers=load_teachers()
-    if pending_teachers:
-        for user,pw in pending_teachers.items():
-            col1,col2=st.columns([3,1])
-            col1.write(user)
-            if col2.button(f"Approve {user}"):
-                teachers[user]=hash_password(pw)
-                save_teachers(teachers)
-                del pending_teachers[user]
-                save_pending_teachers(pending_teachers)
-                st.success(f"✅ Teacher {user} approved.")
-                st.rerun()
-    else:
-        st.info("No pending teachers.")
+# ---------- Admin Dashboard ----------
+if page=="📊 Admin Dashboard":
+    st.subheader("👤 Manage Teachers & Approvals")
+    teachers = load_teachers()
+    pending_teachers = load_pending_teachers()
 
-    # Remove Teachers
-    st.markdown("### ❌ Remove Teachers")
-    if teachers:
-        user_to_remove=st.selectbox("Select teacher to remove", list(teachers.keys()))
-        if st.button("Remove Teacher"):
-            del teachers[user_to_remove]
-            save_teachers(teachers)
-            st.success(f"✅ Teacher {user_to_remove} removed.")
-            st.rerun()
-    else:
-        st.info("No teachers registered.")
+    # Approved Teachers
+    st.markdown("### ✅ Approved Teachers")
+    for username, pwd_hash in teachers.items():
+        col1,col2,col3=st.columns([2,2,1])
+        col1.write(f"Username: {username}")
+        col2.write(f"Password Hash: {pwd_hash}")
+        if col3.button("Remove", key=f"remove_{username}"):
+            st.session_state.remove_teacher=username
 
-    # Upload / Edit Answer Key
-    st.markdown("### 📝 Answer Key Management")
-    answer_key=load_answer_key()
-    new_answer_key=st.text_area("Enter or update answer key:", answer_key)
-    if st.button("Save Answer Key"):
-        save_answer_key(new_answer_key)
-        st.success("✅ Answer key updated successfully!")
+    if st.session_state.remove_teacher:
+        teachers.pop(st.session_state.remove_teacher)
+        save_teachers(teachers)
+        st.session_state.remove_teacher=None
+        st.experimental_rerun()
 
-# ---------- Teacher Panel ----------
-if st.session_state.role=="Teacher":
-    st.subheader("📚 Teacher Dashboard")
+    # Pending Teachers
+    st.markdown("### ⏳ Pending Teacher Registrations")
+    for username, pwd in pending_teachers.items():
+        col1,col2,col3=st.columns([2,2,1])
+        col1.write(f"Username: {username}")
+        col2.write(f"Password Hash: {hash_password(pwd)}")
+        if col3.button("Approve", key=f"approve_{username}"):
+            st.session_state.approve_teacher=username
 
-    # Upload Student Papers
-    st.markdown("### 📤 Upload Student Papers for Auto-Grading")
-    uploaded_files=st.file_uploader("Upload scanned student papers", type=["jpg","jpeg","png"], accept_multiple_files=True)
-    if uploaded_files:
-        results=[]
-        answer_key=load_answer_key()
-        if not answer_key:
-            st.error("❌ No answer key found. Please contact Admin to upload one.")
-        else:
-            for file in uploaded_files:
-                image=Image.open(file)
-                extracted_text=extract_text_from_image(image)
-                st.markdown(f"#### 📄 Extracted Text from {file.name}")
-                st.markdown(f"<div class='ocr-box'>{extracted_text}</div>", unsafe_allow_html=True)
+    if st.session_state.approve_teacher:
+        teachers[st.session_state.approve_teacher]=hash_password(pending_teachers[st.session_state.approve_teacher])
+        save_teachers(teachers)
+        pending_teachers.pop(st.session_state.approve_teacher)
+        save_pending_teachers(pending_teachers)
+        st.session_state.approve_teacher=None
+        st.experimental_rerun()
 
-                # Grade Paper
-                graded=grade_with_answer_key(extracted_text, answer_key)
-                graded["Student"]=file.name
-                results.append(graded)
+    # Display Teacher Results
+    st.markdown("### 📊 Teacher Results")
+    if os.path.exists("results"):
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        st.markdown(f"#### Department/Subject: {dept} / {sub}")
+                        df=pd.read_csv(sub_path)
+                        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
 
-            if results:
-                df=pd.DataFrame(results)
-                styled_df=df.style.applymap(color_rows, subset=["Score"])
-                st.markdown("### 📊 Grading Results")
-                st.dataframe(styled_df, use_container_width=True)
+# ---------- Upload Answer Key ----------
+if page=="📥 Upload Answer Key":
+    st.subheader("Upload Teacher Answer Key (Text or Image)")
+    key_file = st.file_uploader("Upload Answer Key", type=["txt","jpg","jpeg","png"])
+    if key_file:
+        if key_file.type.startswith("text"): key_text = key_file.read().decode("utf-8")
+        else: key_text = extract_text_from_image(Image.open(key_file))
+        save_answer_key(key_text)
+        st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
+        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
-                # Export Results
-                if st.button("📥 Download Results as CSV"):
-                    timestamp=datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename=f"grading_results_{timestamp}.csv"
-                    df.to_csv(filename, index=False)
-                    st.success(f"✅ Results saved as {filename}")
+# ---------- Upload & Grade Student Exam (Single or Batch) ----------
+if page=="📤 Upload & Grade Student Exam":
+    st.subheader("Upload Student Exams for Grading (Single or Multiple)")
+    model_answer = load_answer_key()
+    if not model_answer: st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
 
-                # Visualize
-                fig=px.bar(df, x="Student", y="Score", color="Score", title="Student Scores", text="Score")
-                st.plotly_chart(fig, use_container_width=True)
+    batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
+    department = st.text_input("Department", value="General").strip().replace("/","-")
+    subject = st.text_input("Subject", value="Misc").strip().replace("/","-")
+
+    if not batch_mode:
+        student_name = st.text_input("Student Name")
+        student_id = st.text_input("Student ID")
+        exam_file = st.file_uploader("Upload Student Exam (Image)", type=["jpg","png","jpeg"])
+        if exam_file:
+            image = Image.open(exam_file)
+            student_answer = extract_text_from_image(image)
+            st.markdown(f"<div class='ocr-box'><pre>{student_answer}</pre></div>", unsafe_allow_html=True)
+            if st.button("Grade Answer"):
+                if not all([student_name,student_id,department,subject]):
+                    st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
+                else:
+                    score, feedback = grade_with_answer_key(model_answer, student_answer)
+                    st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
+                    st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
+                    for line in feedback.split("\n"):
+                        cls="feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                        st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+                    result={"Student ID":student_id,"Name":student_name,"Department":department,
+                            "Subject":subject,"Answer":student_answer,"Score":score,
+                            "Feedback":feedback,"Timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                    save_path=f"results/{department}/{subject}/results.csv"
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    try: df=pd.read_csv(save_path); df=pd.concat([df,pd.DataFrame([result])], ignore_index=True)
+                    except: df=pd.DataFrame([result])
+                    df.to_csv(save_path,index=False)
+                    st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
+
+    else:  # Batch Mode
+        batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
+        if batch_files and st.button("Grade All Exams"):
+            results=[]
+            for file in batch_files:
+                image = Image.open(file)
+                student_answer = extract_text_from_image(image)
+                student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]  # filename format: ID_Name.jpg
+                score, feedback = grade_with_answer_key(model_answer, student_answer)
+                results.append({"Student ID":student_id,"Name":student_name,"Department":department,
+                                "Subject":subject,"Answer":student_answer,"Score":score,
+                                "Feedback":feedback,"Timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}%</p>", unsafe_allow_html=True)
+            save_path=f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try: df=pd.read_csv(save_path); df=pd.concat([df,pd.DataFrame(results)], ignore_index=True)
+            except: df=pd.DataFrame(results)
+            df.to_csv(save_path,index=False)
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
