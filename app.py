@@ -22,10 +22,10 @@ st.markdown("""
 
 /* Sidebar background & text */
 section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
-section[data-testid="stSidebar"] * { color: #4a0072 !important; }
+section[data-testid="stSidebar"] * { color: #000000 !important; }
 
 /* Login card */
-.login-card { background-color: #4a0072; color: #ffffff !important; padding: 1.5rem; border-radius: 10px;
+.login-card { background-color: #000000; color:#ffffff !important; padding: 1.5rem; border-radius: 10px;
 box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
 transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards ease-out; }
 
@@ -300,6 +300,7 @@ if page=="📤 Upload & Grade Student Exam":
             except: df=pd.DataFrame(results)
             df.to_csv(save_path,index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
 
 
 
