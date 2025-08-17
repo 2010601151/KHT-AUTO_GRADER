@@ -17,7 +17,7 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 st.markdown("""
 <style>
 .stApp { background-color: #ffffff; color:#800080; }
-section[data-testid="stSidebar"] { background-color#6a1b9a; padding-top: 2rem; }
+section[data-testid="stSidebar"] { background-color: #6a1b9a; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color: white !important; }
 .login-card { background-color: #000000; color: #ffffff; padding: 1.5rem; border-radius: 10px;
 box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
@@ -28,7 +28,7 @@ transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards e
 animation: fadeIn 0.6s ease-in-out; }
 @keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
 h1,h2,h3,h4 { color:#000000; font-weight:bold; }
-div.stButton > button { background-color:#6a1b9a; color:red; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
+div.stButton > button { background-color:#6a1b9a; color:white; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:white; }
 input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#6a1b9a !important; font-weight:bold; }
@@ -309,6 +309,7 @@ if page=="📈 Analytics":
             st.dataframe(top_df.style.applymap(color_rows, subset=["Score"]))
     else:
         st.markdown("<p class='notification'>No data available for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
