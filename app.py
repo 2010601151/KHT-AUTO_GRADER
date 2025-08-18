@@ -233,8 +233,10 @@ if page=="📤 Upload & Grade Student Exam":
     st.subheader("Upload Student Exams for Grading (Single or Multiple)")
     model_answer = load_answer_key()
     if not model_answer: st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
-    batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
-    department = st.text_input("Department", value="General").strip().replace("/","-")
+  st.markdown("<span style='font-weight: bold; color: black;'>Enable Batch Grading (Upload multiple files)</span>", unsafe_allow_html=True)
+batch_mode = st.checkbox("", key="batch_mode_checkbox")
+
+ department = st.text_input("Department", value="General").strip().replace("/","-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/","-")
     if not batch_mode:
         student_name = st.text_input("Student Name")
@@ -334,4 +336,5 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
