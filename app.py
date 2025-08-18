@@ -268,37 +268,53 @@ if page=="📤 Upload & Grade Student Exam":
                         except: df=pd.DataFrame([result])
                         df.to_csv(save_path,index=False)
                         st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
+else:
+    batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
 
-        else:
-            batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
+    # 🔹 Preview uploaded file names + OCR text snippets with expand option
+    if batch_files:
+        st.markdown("### 📂 Files Selected (with OCR preview):")
+        for file in batch_files:
+            st.markdown(f"- **{file.name}**")
+            # Open image and run OCR
+            image = Image.open(file)
+            student_answer = extract_text_from_image(image)
 
-            # 🔹 Preview uploaded file names
-            if batch_files:
-                st.markdown("### 📂 Files Selected:")
-                for file in batch_files:
-                    st.markdown(f"- **{file.name}**")
+            # Short snippet
+            snippet = student_answer[:150] + "..." if len(student_answer) > 150 else student_answer
+            st.markdown(f"<div class='ocr-box'><pre>{snippet}</pre></div>", unsafe_allow_html=True)
 
-            if batch_files and st.button("Grade All Exams"):
-                results=[]
-                for file in batch_files:
-                    image = Image.open(file)
-                    student_answer = extract_text_from_image(image)
-                    try:
-                        student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]
-                    except:
-                        student_name, student_id = "Unknown","0000"
-                    score, feedback = grade_with_answer_key(model_answer, student_answer)
-                    results.append({"Student ID":student_id,"Name":student_name,"Department":department,
-                                    "Subject":subject,"Answer":student_answer,"Score":score,
-                                    "Feedback":feedback,"Timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                    st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}%</p>", unsafe_allow_html=True)
-                save_path=f"results/{department}/{subject}/results.csv"
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                try: df=pd.read_csv(save_path); df=pd.concat([df,pd.DataFrame(results)], ignore_index=True)
-                except: df=pd.DataFrame(results)
-                df.to_csv(save_path,index=False)
-                st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+            # Expandable full OCR text
+            with st.expander(f"🔎 View Full OCR for {file.name}"):
+                st.text_area("OCR Extracted Answer", student_answer, height=200)
 
+    if batch_files and st.button("Grade All Exams"):
+        results=[]
+        for file in batch_files:
+            image = Image.open(file)
+            student_answer = extract_text_from_image(image)
+            try:
+                student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]
+            except:
+                student_name, student_id = "Unknown","0000"
+            score, feedback = grade_with_answer_key(model_answer, student_answer)
+            results.append({
+                "Student ID":student_id,"Name":student_name,"Department":department,
+                "Subject":subject,"Answer":student_answer,"Score":score,
+                "Feedback":feedback,"Timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+            st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}%</p>", unsafe_allow_html=True)
+        save_path=f"results/{department}/{subject}/results.csv"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        try: 
+            df=pd.read_csv(save_path)
+            df=pd.concat([df,pd.DataFrame(results)], ignore_index=True)
+        except: 
+            df=pd.DataFrame(results)
+        df.to_csv(save_path,index=False)
+        st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
+        
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     st.subheader("📊 Your Graded Results")
@@ -347,6 +363,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
