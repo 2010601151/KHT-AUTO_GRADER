@@ -30,7 +30,7 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
-input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
 label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
 thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
@@ -50,20 +50,50 @@ if os.path.exists("kht_logo.jpeg"):
     st.image("kht_logo.jpeg", width=140)
 
 # ---------- Helper Functions ----------
-def hash_password(password): return hashlib.sha256(password.encode()).hexdigest()
-def load_teachers(): return json.load(open("teachers.json","r")) if os.path.exists("teachers.json") else {}
-def save_teachers(data): json.dump(data, open("teachers.json","w"))
-def load_pending_teachers(): return json.load(open("pending_teachers.json","r")) if os.path.exists("pending_teachers.json") else {}
-def save_pending_teachers(data): json.dump(data, open("pending_teachers.json","w"))
+def hash_password(password): 
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_json(path):
+    if os.path.exists(path):
+        try:
+            with open(path,"r") as f: 
+                return json.load(f)
+        except: 
+            return {}
+    return {}
+
+def save_json(path, data):
+    with open(path,"w") as f:
+        json.dump(data, f)
+
+def load_teachers(): 
+    return load_json("teachers.json")
+
+def save_teachers(data): 
+    save_json("teachers.json", data)
+
+def load_pending_teachers(): 
+    return load_json("pending_teachers.json")
+
+def save_pending_teachers(data): 
+    save_json("pending_teachers.json", data)
+
 def load_answer_key():
-    try: return json.load(open("answer_key.json","r")).get("key","")
-    except: return ""
-def save_answer_key(text): json.dump({"key":text}, open("answer_key.json","w"))
+    try: 
+        return json.load(open("answer_key.json","r")).get("key","")
+    except: 
+        return ""
+
+def save_answer_key(text): 
+    json.dump({"key":text}, open("answer_key.json","w"))
+
 def extract_text_from_image(image):
-    try: return pytesseract.image_to_string(image)
+    try: 
+        return pytesseract.image_to_string(image)
     except Exception as e:
         st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
         return ""
+
 def color_rows(val):
     if val>=85: color='#d4edda'
     elif val>=60: color='#fff3cd'
@@ -94,7 +124,7 @@ if not st.session_state.authenticated:
             if admin_user==ADMIN_USERNAME and hash_password(admin_pass)==ADMIN_PASSWORD_HASH:
                 st.session_state.authenticated=True
                 st.session_state.role="Admin"
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
@@ -112,26 +142,26 @@ if not st.session_state.authenticated:
             if teacher_user in teachers and teachers[teacher_user]==hash_password(teacher_pass):
                 st.session_state.authenticated=True
                 st.session_state.role="Teacher"
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
         if register_btn:
             if teacher_user in teachers or teacher_user in pending_teachers:
                 st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
             elif teacher_user and teacher_pass:
-                pending_teachers[teacher_user]=teacher_pass
+                pending_teachers[teacher_user]=hash_password(teacher_pass)
                 save_pending_teachers(pending_teachers)
                 st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
             else:
                 st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
-    st.stop()  # prevent loading other pages until login
+    st.stop()
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
     st.session_state.authenticated=False
     st.session_state.role=None
-    st.experimental_rerun()
+    st.rerun()
 
 # ---------- Page Selection Based on Role ----------
 if st.session_state.role=="Admin":
@@ -170,22 +200,22 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
             teachers.pop(st.session_state.remove_teacher)
             save_teachers(teachers)
         st.session_state.remove_teacher=None
-        st.experimental_rerun()
+        st.rerun()
     st.markdown("### ⏳ Pending Teacher Registrations")
-    for username, pwd in pending_teachers.items():
+    for username, pwd_hash in pending_teachers.items():
         col1,col2,col3=st.columns([2,2,1])
         col1.write(f"Username: {username}")
-        col2.write(f"Password Hash: {hash_password(pwd)}")
+        col2.write(f"Password Hash: {pwd_hash}")
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
     teacher_to_approve = st.session_state.get("approve_teacher", None)
     if teacher_to_approve and teacher_to_approve in pending_teachers:
-        teachers[teacher_to_approve] = hash_password(pending_teachers[teacher_to_approve])
+        teachers[teacher_to_approve] = pending_teachers[teacher_to_approve]
         save_teachers(teachers)
         pending_teachers.pop(teacher_to_approve)
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
-        st.experimental_rerun()
+        st.rerun()
 
 # ---------- Teacher/Admin Shared Pages ----------
 if page=="📥 Upload Answer Key":
@@ -240,7 +270,10 @@ if page=="📤 Upload & Grade Student Exam":
             for file in batch_files:
                 image = Image.open(file)
                 student_answer = extract_text_from_image(image)
-                student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]
+                try:
+                    student_name, student_id = os.path.splitext(file.name)[0].split("_")[:2]
+                except:
+                    student_name, student_id = "Unknown","0000"
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
                 results.append({"Student ID":student_id,"Name":student_name,"Department":department,
                                 "Subject":subject,"Answer":student_answer,"Score":score,
