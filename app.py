@@ -284,25 +284,31 @@ if page == "📤 Upload & Grade Student Exam":
                         st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
 
         else:
-            # ---------- Batch Mode ----------
-            batch_files = st.file_uploader("Upload Multiple Exams (Images)", type=["jpg","png","jpeg"], accept_multiple_files=True)
+          # ---------- BATCH MODE ----------
+batch_files = st.file_uploader(
+    "Upload Multiple Exams (Images)",
+    type=["jpg","png","jpeg"],
+    accept_multiple_files=True
+)
 
-            if batch_files:
-                st.markdown("### 📂 Files Selected (with OCR preview):")
-                for file in batch_files:
-                    st.markdown(f"- **{file.name}**")
-                    image = Image.open(file)
-                    student_answer = extract_text_from_image(image)
+# Preview uploaded files with OCR snippets
+if batch_files:
+    st.markdown("### 📂 Files Selected (with OCR preview):")
+    for file in batch_files:
+        st.markdown(f"- **{file.name}**")
+        image = Image.open(file)
+        student_answer = extract_text_from_image(image)
 
-                    # Short snippet
-                    snippet = student_answer[:150] + "..." if len(student_answer) > 150 else student_answer
-                    st.markdown(f"<div class='ocr-box'><pre>{snippet}</pre></div>", unsafe_allow_html=True)
+        # Short snippet
+        snippet = student_answer[:150] + "..." if len(student_answer) > 150 else student_answer
+        st.markdown(f"<div class='ocr-box'><pre>{snippet}</pre></div>", unsafe_allow_html=True)
 
-                    # Expandable full OCR text
-                    with st.expander(f"🔎 View Full OCR for {file.name}"):
-                        st.text_area("OCR Extracted Answer", student_answer, height=200)
+        # Expandable full OCR text
+        with st.expander(f"🔎 View Full OCR for {file.name}"):
+            st.text_area("OCR Extracted Answer", student_answer, height=200)
 
-           if batch_files and st.button("Grade All Exams"):
+# Grade all exams in batch
+if batch_files and st.button("Grade All Exams"):
     results = []
     for file in batch_files:
         image = Image.open(file)
@@ -310,7 +316,6 @@ if page == "📤 Upload & Grade Student Exam":
 
         # ---------- Auto-detect Name & ID ----------
         student_name, student_id = "Unknown", "0000"
-        parts = []  # ensure variable exists
         try:
             for line in student_answer.splitlines():
                 line_clean = line.strip()
@@ -354,7 +359,6 @@ if page == "📤 Upload & Grade Student Exam":
     df.to_csv(save_path, index=False)
     st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
 
-        
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     st.subheader("📊 Your Graded Results")
@@ -403,6 +407,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
