@@ -7,7 +7,7 @@ from PIL import Image
 import pytesseract
 import os
 import hashlib
-from auto_grader import grade_with_answer_key
+from auto_grader import grade_with_answer_key, parse_mcq_answers, grade_mcq
 import plotly.express as px
 
 # ---------- App Config ----------
@@ -41,8 +41,6 @@ tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px s
 .feedback-correct { background-color:#28a745; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-partial { background-color:#ffc107; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 .feedback-wrong { background-color:#dc3545; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
-/* Make radio buttons bold and black */
-div[role="radiogroup"] label { color: black !important; font-weight: bold !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -224,8 +222,190 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
 
     # ---------- Select Section ----------
-    st.markdown("<b style='color:black;'>Select Exam Section</b>", unsafe_allow_html=True)
-    mode = st.radio(
-        label="",
-        options=["Multiple Choice", "Essay"]
-    )
+    mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
+
+    department = st.text_input("Department", value="General").strip().replace("/", "-")
+    subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+
+    batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
+
+    # ---------- File Labels ----------
+    if mode == "Multiple Choice":
+        key_file_label = "Upload Teacher's MCQ Key"
+        student_file_label = "Upload Student MCQ Answers (scan or text)"
+    else:
+        key_file_label = "Upload Teacher's Essay Key"
+        student_file_label = "Upload Student Essay (scan or text)"
+
+    # ---------- Upload Answer Key ----------
+    st.markdown("### Upload Teacher Answer Key (Text or Image)")
+    key_file = st.file_uploader(key_file_label, type=["txt","jpg","jpeg","png"])
+    if key_file:
+        if key_file.type.startswith("text"): 
+            teacher_key = key_file.read().decode("utf-8").strip()
+        else: 
+            teacher_key = extract_text_from_image(Image.open(key_file))
+        save_answer_key(teacher_key)
+        st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
+        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
+
+    # Load model answer for grading
+    model_answer = load_answer_key()
+    if not model_answer:
+        st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
+        st.stop()
+
+    # ---------- Single Student ----------
+    if not batch_mode:
+        student_name = st.text_input("Student Name")
+        student_id = st.text_input("Student ID")
+        student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
+
+        if student_file and st.button("Grade Student"):
+            # Read student answer
+            if student_file.type.startswith("text"):
+                student_answer = student_file.read().decode("utf-8").strip()
+            else:
+                student_answer = extract_text_from_image(Image.open(student_file))
+
+            # ---------- Grading ----------
+            if mode == "Multiple Choice":
+                student_answers = parse_mcq_answers(student_answer)
+                score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+            else:
+                score, feedback = grade_with_answer_key(model_answer, student_answer)
+
+            st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
+            st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
+            for line in feedback.split("\n"):
+                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+
+            # ---------- Save Result ----------
+            result = {
+                "Student ID": student_id,
+                "Name": student_name,
+                "Department": department,
+                "Subject": subject,
+                "Answer": student_answer,
+                "Score": score,
+                "Feedback": feedback,
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+            except:
+                df = pd.DataFrame([result])
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
+
+    # ---------- Batch Grading ----------
+    else:
+        batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
+        if batch_files and st.button("Grade All Exams"):
+            results = []
+            for file in batch_files:
+                # ---------- Read student answer ----------
+                if file.type.startswith("text"):
+                    student_answer = file.read().decode("utf-8").strip()
+                else:
+                    student_answer = extract_text_from_image(Image.open(file))
+
+                # ---------- Auto-detect Name & ID ----------
+                student_name, student_id = "Unknown", "0000"
+                try:
+                    for line in student_answer.splitlines():
+                        line_clean = line.strip()
+                        if line_clean.lower().startswith("name:"):
+                            student_name = line_clean.split(":", 1)[1].strip()
+                        elif line_clean.lower().startswith("id:"):
+                            student_id = line_clean.split(":", 1)[1].strip()
+                    # Fallback: filename John_123.txt
+                    parts = os.path.splitext(file.name)[0].split("_")
+                    if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
+                        student_name, student_id = parts[0], parts[1]
+                except:
+                    pass
+
+                # ---------- Grading ----------
+                if mode == "Multiple Choice":
+                    student_answers = parse_mcq_answers(student_answer)
+                    score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+                else:
+                    score, feedback = grade_with_answer_key(model_answer, student_answer)
+
+                results.append({
+                    "Student ID": student_id,
+                    "Name": student_name,
+                    "Department": department,
+                    "Subject": subject,
+                    "Answer": student_answer,
+                    "Score": score,
+                    "Feedback": feedback,
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+
+                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
+
+            # ---------- Save all results ----------
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
+            except:
+                df = pd.DataFrame(results)
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
+# ---------- Teacher Dashboard ----------
+if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
+    st.subheader("📊 Your Graded Results")
+    if os.path.exists("results"):
+        all_results = []
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            st.dataframe(df_all.style.applymap(color_rows, subset=["Score"]))
+        else:
+            st.markdown("<p class='notification'>No results found.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
+
+# ---------- Analytics ----------
+if page=="📈 Analytics":
+    st.subheader("📈 Score Analytics")
+    if os.path.exists("results"):
+        all_results = []
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        df["Department"] = dept
+                        df["Subject"] = sub
+                        all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            avg_dept = df_all.groupby("Department")["Score"].mean().reset_index()
+            fig1 = px.bar(avg_dept, x="Department", y="Score", title="Average Score by Department", text="Score")
+            st.plotly_chart(fig1, use_container_width=True)
+            avg_sub = df_all.groupby("Subject")["Score"].mean().reset_index()
+            fig2 = px.bar(avg_sub, x="Subject", y="Score", title="Average Score by Subject", text="Score")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
