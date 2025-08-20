@@ -5,6 +5,39 @@ from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
+from PIL import Image  # if using OCR later
+
+# ---------- MCQ Helpers ----------
+def normalize_choice(answer):
+    if not answer:
+        return ""
+    ans = str(answer).strip().upper()
+    if len(ans) == 1 and ans in ["A","B","C","D","E"]:
+        return ans
+    if ans[0] in ["A","B","C","D","E"]:
+        return ans[0]
+    return ans
+
+def parse_mcq_answers(answer_text):
+    """Parse MCQ student answers line by line using normalize_choice"""
+    answers = []
+    for line in answer_text.split("\n"):
+        if line.strip():
+            answers.append(normalize_choice(line))
+    return answers
+
+def grade_mcq(teacher_key, student_answers):
+    """Grade multiple choice answers"""
+    feedback = []
+    score = 0
+    for i, correct in enumerate(teacher_key):
+        student = student_answers[i] if i < len(student_answers) else ""
+        if normalize_choice(student) == normalize_choice(correct):
+            score += 1
+            feedback.append(f"Q{i+1}: ✅ Correct")
+        else:
+            feedback.append(f"Q{i+1}: ❌ Incorrect (Expected {correct}, got {student})")
+    return score, feedback
 
 # ✅ Ensure Hugging Face cache is stored in a persistent folder on Streamlit Cloud
 os.environ['HF_HOME'] = '/mount/src/.cache/huggingface'
@@ -22,13 +55,12 @@ def load_sbert_model():
 
 sbert_model = load_sbert_model()
 
-# ✅ Clean text for better matching
+# ---------- Essay / Semantic Grading Helpers ----------
 def clean_text(text):
     text = str(text).lower().strip()
     text = re.sub(r'[^\w\s]', '', text)  # remove punctuation
     return text
 
-# ✅ Parse teacher answer key into a list
 def parse_answer_key(key_text):
     key_text = key_text.strip()
     if "\n" in key_text:
@@ -37,8 +69,7 @@ def parse_answer_key(key_text):
         answers = [clean_text(a) for a in key_text.split(",") if a.strip()]
     return answers
 
-# ✅ Parse student answers into a list
-def parse_student_answers(answer_text):
+def parse_essay_answers(answer_text):
     answer_text = answer_text.strip()
     if "\n" in answer_text:
         answers = [clean_text(a) for a in answer_text.split("\n") if a.strip()]
@@ -46,10 +77,10 @@ def parse_student_answers(answer_text):
         answers = [clean_text(a) for a in answer_text.split(",") if a.strip()]
     return answers
 
-# ✅ Main grading function (step-by-step)
+# ✅ Main grading function (essay / semantic)
 def grade_with_answer_key(answer_key_text, student_answer_text):
     teacher_answers = parse_answer_key(answer_key_text)
-    student_answers = parse_student_answers(student_answer_text)
+    student_answers = parse_essay_answers(student_answer_text)
 
     total_questions = len(teacher_answers)
     correct_count = 0
@@ -59,15 +90,15 @@ def grade_with_answer_key(answer_key_text, student_answer_text):
         if i < len(student_answers):
             student_ans = student_answers[i]
 
-            # For MCQs and True/False: exact match
+            # For exact match
             if student_ans == correct_answer:
                 correct_count += 1
                 feedback_list.append(f"Q{i+1}: ✅ Correct")
             else:
-                # For short/long answers: semantic similarity (only if model loaded)
+                # Semantic similarity
                 if sbert_model:
                     score, _ = grade_answer_bert(correct_answer, student_ans)
-                    st.write(f"Debug: Q{i+1} similarity = {score}%")  # 🔍 Debug output
+                    st.write(f"Debug: Q{i+1} similarity = {score}%")
                     if score >= 80:
                         correct_count += 1
                         feedback_list.append(f"Q{i+1}: ⚠️ Partially Correct (Similarity: {score}%)")
