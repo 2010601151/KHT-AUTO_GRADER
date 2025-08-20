@@ -44,7 +44,7 @@ input:focus, textarea:focus, select:focus {
 input::placeholder,
 textarea::placeholder,
 select::placeholder {
-    color: #000000 !important;  /* Black placeholder text */
+    color: #ffffff !important;  /* Black placeholder text */
     opacity: 1 !important;      /* Ensure full opacity */
 }
 label, .stFileUploader label { color:#000000 !important; font-weight:bold; }
@@ -402,6 +402,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
