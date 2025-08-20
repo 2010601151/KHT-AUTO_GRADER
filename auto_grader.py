@@ -1,19 +1,14 @@
 # ---------- auto_grader.py ----------
 import difflib
+from sentence_transformers import SentenceTransformer, util
 
 # ------------------ MCQ Functions ------------------
 def parse_mcq_answers(text):
-    """
-    Parse student MCQ answers from text.
-    Expects lines like "1. A", "2) B", "3-C" etc.
-    Returns a list of answers in order.
-    """
     answers = []
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
-        # Try to find letter answer
         for part in line.split():
             if part.upper() in ["A","B","C","D","E"]:
                 answers.append(part.upper())
@@ -21,12 +16,6 @@ def parse_mcq_answers(text):
     return answers
 
 def grade_mcq(answer_key, student_answers):
-    """
-    Grade MCQ.
-    answer_key: list of correct letters ["A","C","B",...]
-    student_answers: list of student letters ["A","C","D",...]
-    Returns score (percentage) and feedback string.
-    """
     total = len(answer_key)
     correct_count = 0
     feedback_lines = []
@@ -46,44 +35,65 @@ def grade_mcq(answer_key, student_answers):
     feedback = "\n".join(feedback_lines)
     return score, feedback
 
-# ------------------ Essay / Text Functions ------------------
+# ------------------ Semantic Essay Grader ------------------
+model = SentenceTransformer('all-MiniLM-L6-v2')  # lightweight & fast
+
 def grade_with_answer_key(answer_key_text, student_text):
-    """
-    Simple essay / free-text grading using similarity.
-    Returns a percentage score and basic feedback.
-    """
-    # Split lines and normalize
-    key_lines = [line.strip().lower() for line in answer_key_text.splitlines() if line.strip()]
-    student_lines = [line.strip().lower() for line in student_text.splitlines() if line.strip()]
+    key_lines = [line.strip() for line in answer_key_text.splitlines() if line.strip()]
+    student_lines = [line.strip() for line in student_text.splitlines() if line.strip()]
 
-    # If empty student text, score 0
     if not student_lines:
-        feedback = "❌ No answer provided."
-        return 0, feedback
-
-    # Compute similarity line by line
-    total = len(key_lines)
-    if total == 0:
+        return 0, "❌ No answer provided."
+    if not key_lines:
         return 0, "⚠️ No answer key to grade."
 
-    matched_count = 0
+    # Embed sentences
+    key_embeddings = model.encode(key_lines, convert_to_tensor=True)
+    student_embeddings = model.encode(student_lines, convert_to_tensor=True)
+
     feedback_lines = []
-    for i, key in enumerate(key_lines):
-        # Get corresponding student line if exists
-        try:
-            student_line = student_lines[i]
-        except IndexError:
-            student_line = ""
-        ratio = difflib.SequenceMatcher(None, key, student_line).ratio()
-        percent = int(ratio*100)
-        if ratio > 0.85:
-            feedback_lines.append(f"{i+1}. ✅ Excellent match ({percent}%)")
-            matched_count += 1
-        elif ratio > 0.6:
-            feedback_lines.append(f"{i+1}. ⚠️ Partial match ({percent}%)")
-            matched_count += 0.5
+    total_score = 0
+    matched_sentences = []  # keep track for highlights
+
+    for i, key_emb in enumerate(key_embeddings):
+        similarities = util.cos_sim(key_emb, student_embeddings)[0]
+        max_idx = int(similarities.argmax())
+        sim_score = float(similarities[max_idx])
+        percent = round(sim_score * 100, 2)
+
+        if sim_score > 0.85:
+            feedback_lines.append(f"{i+1}. ✅ Excellent match ({percent}%) → {student_lines[max_idx]}")
+            total_score += 1
+            matched_sentences.append(student_lines[max_idx])
+        elif sim_score > 0.6:
+            feedback_lines.append(f"{i+1}. ⚠️ Partial match ({percent}%) → {student_lines[max_idx]}")
+            total_score += 0.5
+            matched_sentences.append(student_lines[max_idx])
         else:
-            feedback_lines.append(f"{i+1}. ❌ Low match ({percent}%)")
-    score = round((matched_count/total)*100,2)
+            feedback_lines.append(f"{i+1}. ❌ Low match ({percent}%) → {student_lines[max_idx]}")
+
+    score = round((total_score / len(key_lines)) * 100, 2)
     feedback = "\n".join(feedback_lines)
-    return score, feedback
+    return score, feedback, matched_sentences
+
+# ------------------ Batch Essay Grader ------------------
+def grade_essay_batch(answer_key_text, student_files):
+    """
+    Grades multiple essays at once, returns a list of dicts:
+    [{'Name':..., 'ID':..., 'Score':..., 'Feedback':..., 'Matched':...}, ...]
+    """
+    results = []
+    for info in student_files:
+        student_answer = info['Answer']
+        student_name = info.get('Name', 'Unknown')
+        student_id = info.get('ID', '0000')
+        score, feedback, matched = grade_with_answer_key(answer_key_text, student_answer)
+        results.append({
+            'Name': student_name,
+            'ID': student_id,
+            'Answer': student_answer,
+            'Score': score,
+            'Feedback': feedback,
+            'Matched': matched
+        })
+    return results
