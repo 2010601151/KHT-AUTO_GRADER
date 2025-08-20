@@ -100,6 +100,15 @@ def color_rows(val):
     else: color='#f8d7da'
     return f'background-color:{color}'
 
+# ---------- Extract only MCQ lines ----------
+def extract_mcq_lines(text):
+    mcq_lines = []
+    for line in text.splitlines():
+        line_clean = line.strip()
+        if line_clean and (line_clean[0].isdigit() or line_clean.upper() in ["A","B","C","D","E"]):
+            mcq_lines.append(line_clean)
+    return mcq_lines
+
 # ---------- Session State ----------
 if "authenticated" not in st.session_state: st.session_state.authenticated=False
 if "role" not in st.session_state: st.session_state.role=None
@@ -270,7 +279,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
 
             # ---------- Grading ----------
             if mode == "Multiple Choice":
-                student_answers = parse_mcq_answers(student_answer)
+                student_answers = parse_mcq_answers("\n".join(extract_mcq_lines(student_answer)))
                 score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
             else:
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
@@ -332,7 +341,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
 
                 # ---------- Grading ----------
                 if mode == "Multiple Choice":
-                    student_answers = parse_mcq_answers(student_answer)
+                    student_answers = parse_mcq_answers("\n".join(extract_mcq_lines(student_answer)))
                     score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
                 else:
                     score, feedback = grade_with_answer_key(model_answer, student_answer)
