@@ -1,9 +1,10 @@
-# ---------- auto_grader.py (Fixed & Updated MCQ + Semantic Grading) ----------
+# ---------- auto_grader.py (Pro-Level MCQ + Semantic Grading) ----------
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer, util
 import re
-from PIL import Image  # if using OCR later
+from PIL import Image
+import torch
 
 # ---------- MCQ Helpers ----------
 def normalize_choice(answer):
@@ -18,19 +19,18 @@ def normalize_choice(answer):
     return ans
 
 def parse_mcq_answers(answer_text):
-    """Parse MCQ student answers line by line, ignore extra text/punctuation"""
+    """Parse MCQ student answers line by line, ignore numbering/punctuation"""
     answers = []
     for line in answer_text.split("\n"):
         line = line.strip()
         if not line:
             continue
-        # Remove numbering or punctuation (e.g., "1. A" -> "A")
         line = re.sub(r'^\d+\s*[\.\)-]*\s*', '', line)
         answers.append(normalize_choice(line))
     return answers
 
 def grade_mcq(teacher_key, student_answers):
-    """Grade multiple choice answers"""
+    """Grade multiple choice answers and give detailed feedback"""
     feedback = []
     score = 0
     for i, correct in enumerate(teacher_key):
@@ -40,7 +40,8 @@ def grade_mcq(teacher_key, student_answers):
             feedback.append(f"Q{i+1}: ✅ Correct")
         else:
             feedback.append(f"Q{i+1}: ❌ Incorrect (Expected {correct}, got {student})")
-    return score, "\n".join(feedback)
+    final_score = round((score / len(teacher_key)) * 100, 2) if teacher_key else 0
+    return final_score, "\n".join(feedback)
 
 # ---------- SBERT / Semantic Grading Setup ----------
 os.environ['HF_HOME'] = '/mount/src/.cache/huggingface'
@@ -57,7 +58,7 @@ def load_sbert_model():
 
 sbert_model = load_sbert_model()
 
-# ---------- Essay / Semantic Grading Helpers ----------
+# ---------- Text Cleaning Helpers ----------
 def clean_text(text):
     text = str(text).lower().strip()
     text = re.sub(r'[^\w\s]', '', text)
@@ -81,8 +82,12 @@ def parse_essay_answers(answer_text):
         answers = [clean_text(a) for a in answer_text.split(",") if a.strip()]
     return answers
 
-def grade_with_answer_key(answer_key_text, student_answer_text):
-    """Grade essay / semantic answers using SBERT"""
+# ---------- Semantic / Essay Grading ----------
+def grade_with_answer_key(answer_key_text, student_answer_text, partial_threshold=60):
+    """
+    Grade essay / semantic answers using SBERT.
+    partial_threshold: similarity % to count partial credit
+    """
     teacher_answers = parse_answer_key(answer_key_text)
     student_answers = parse_essay_answers(student_answer_text)
 
@@ -99,8 +104,12 @@ def grade_with_answer_key(answer_key_text, student_answer_text):
             else:
                 if sbert_model:
                     score, fb = grade_answer_bert(correct_answer, student_ans)
-                    if score >= 80:
+                    if score >= 85:
                         correct_count += 1
+                        feedback_list.append(f"Q{i+1}: ✅ Excellent (Similarity: {score}%)")
+                    elif score >= partial_threshold:
+                        # Partial credit counts as 0.5 question
+                        correct_count += 0.5
                         feedback_list.append(f"Q{i+1}: ⚠️ Partially Correct (Similarity: {score}%)")
                     else:
                         feedback_list.append(f"Q{i+1}: ❌ Incorrect (Expected: {correct_answer})")
@@ -122,12 +131,21 @@ def grade_answer_bert(model_answer, student_answer):
         score = round(similarity * 100, 2)
 
         if score >= 85:
-            feedback = "✅ Excellent! Your answer is very close in meaning."
+            feedback = "✅ Excellent! Very close in meaning."
         elif score >= 60:
-            feedback = "⚠️ Fair. You understood part of the answer."
+            feedback = "⚠️ Fair. Partial understanding."
         else:
-            feedback = "❌ Needs improvement. Try reviewing the topic."
+            feedback = "❌ Needs improvement. Review the topic."
 
         return score, feedback
     except Exception as e:
         return 0, f"⚠️ Error in BERT grading: {str(e)}"
+
+# ---------- OCR Helper (Optional for image-based answers) ----------
+def extract_text_from_image(image):
+    """Extract text using pytesseract"""
+    try:
+        return pytesseract.image_to_string(image)
+    except Exception as e:
+        st.warning(f"OCR Error: {e}")
+        return ""
