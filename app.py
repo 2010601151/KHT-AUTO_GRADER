@@ -31,28 +31,28 @@ h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
 input, textarea, select {
-    background-color: #ffffff !important;
-    color: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
     font-weight: bold;
     border: 1px solid #6a1b9a !important;
 }
 /* Fix for typed text when input is focused */
 input:focus, textarea:focus, select:focus {
-    background-color: #ffffff !important;
-    color: #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
 }
 /* Streamlit BaseWeb input fix for placeholder and typed text */
 div[data-baseweb="input"] input,
 div[data-baseweb="input"] textarea,
 div[data-baseweb="select"] select {
-    color: #000000 !important;
-    background-color: #ffffff !important;
+    color: #ffffff !important;
+    background-color: #000000 !important;
     font-weight: bold;
 }
 div[data-baseweb="input"] input::placeholder,
 div[data-baseweb="input"] textarea::placeholder,
 div[data-baseweb="select"] select::placeholder {
-    color: #000000 !important;
+    color: #ffffff !important;
     opacity: 1 !important;
 }
 label, .stFileUploader label { color:#000000 !important; font-weight:bold; }
@@ -411,6 +411,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
