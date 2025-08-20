@@ -1,4 +1,4 @@
-# ---------- app.py (Fully Professional KHT AI Auto-Grader - Fixed for Image Recognition) ----------
+# ---------- app.py (Fully Professional KHT AI Auto-Grader with OCR + Semantic Grading) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -92,23 +92,6 @@ def extract_text_from_image(image):
         return pytesseract.image_to_string(image)
     except Exception as e:
         st.warning(f"OCR Error: {e}")
-        return ""
-
-# ---------- Unified Student File Reader ----------
-def read_student_file(file):
-    """
-    Reads a student file (text or image) and returns the extracted string.
-    Works for txt, jpg, jpeg, png.
-    """
-    try:
-        if file.type.startswith("text"):
-            return file.read().decode("utf-8").strip()
-        else:
-            img = Image.open(file)
-            img = img.convert("RGB")
-            return extract_text_from_image(img)
-    except Exception as e:
-        st.warning(f"Error reading student file '{file.name}': {e}")
         return ""
 
 def color_rows(val):
@@ -238,7 +221,7 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         st.session_state.approve_teacher=None
         st.rerun()
 
-# ---------- Shared Upload & Grade ----------
+# ---------- Upload & Grade Student Exam ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
@@ -263,24 +246,23 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     if not model_answer:
         st.warning("⚠️ Please upload the answer key first.")
         st.stop()
-    
+
     # ---------- Single Student ----------
     if not batch_mode:
         student_name = st.text_input("Student Name")
         student_id = st.text_input("Student ID")
         student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
         if student_file and st.button("Grade Student"):
-            student_answer = read_student_file(student_file)
+            student_answer = student_file.read().decode("utf-8").strip() if student_file.type.startswith("text") else extract_text_from_image(Image.open(student_file))
             if mode=="Multiple Choice":
                 student_answers = parse_mcq_answers(student_answer)
                 score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
             else:
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
-            
             st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
             st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
             for line in feedback.split("\n"):
-                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong"
                 st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
             
             result = {
@@ -309,17 +291,15 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
         if batch_files and st.button("Grade All Exams"):
             results=[]
             for file in batch_files:
-                student_answer = read_student_file(file)
+                student_answer = file.read().decode("utf-8").strip() if file.type.startswith("text") else extract_text_from_image(Image.open(file))
                 student_name, student_id = "Unknown","0000"
-                try:
-                    for line in student_answer.splitlines():
-                        line_clean=line.strip()
-                        if line_clean.lower().startswith("name:"): student_name=line_clean.split(":",1)[1].strip()
-                        if line_clean.lower().startswith("id:"): student_id=line_clean.split(":",1)[1].strip()
-                    parts=os.path.splitext(file.name)[0].split("_")
-                    if (student_name=="Unknown" or student_id=="0000") and len(parts)>=2:
-                        student_name, student_id=parts[0], parts[1]
-                except: pass
+                for line in student_answer.splitlines():
+                    line_clean=line.strip()
+                    if line_clean.lower().startswith("name:"): student_name=line_clean.split(":",1)[1].strip()
+                    if line_clean.lower().startswith("id:"): student_id=line_clean.split(":",1)[1].strip()
+                parts=os.path.splitext(file.name)[0].split("_")
+                if (student_name=="Unknown" or student_id=="0000") and len(parts)>=2:
+                    student_name, student_id=parts[0], parts[1]
                 if mode=="Multiple Choice":
                     student_answers=parse_mcq_answers(student_answer)
                     score,feedback=grade_mcq(model_answer.splitlines(), student_answers)
@@ -377,17 +357,13 @@ if page=="📈 Analytics":
         top_df=df.sort_values(by="Score",ascending=False).head(5)
         st.table(top_df[["Student ID","Name","Score"]])
 
-# ---------- Teacher Help Grading ----------
-if page=="🖊️ Teacher Help Grading" and st.session_state.role=="Teacher":
-    st.subheader("📝 Teacher Help Grading (Optional AI Assistance)")
-    essay_file=st.file_uploader("Upload Student Essay (Text/Image)", type=["txt","jpg","jpeg","png"])
-    if essay_file and st.button("Grade Essay"):
-        essay_text = read_student_file(essay_file)
-        teacher_key=load_answer_key()
-        if not teacher_key: st.warning("Upload answer key first."); st.stop()
-        score,feedback=grade_with_answer_key(teacher_key,essay_text)
-        st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
-        for line in feedback.split("\n"):
-            cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
-            st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+# ---------- Teacher Dashboard ----------
+if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
+    st.subheader("📊 Teacher Dashboard")
+    st.markdown("### Your Uploaded Results Summary")
+    dept = st.text_input("Department", value="General").strip().replace("/", "-")
+    subj = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+    df=load_results(dept,subj)
+    if df.empty: st.info("No results uploaded yet.")
+    else:
+        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
