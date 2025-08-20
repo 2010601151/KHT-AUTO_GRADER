@@ -2,10 +2,10 @@
 
 def normalize_choice(ans):
     """Normalize multiple choice answer to A-E or return empty string if invalid."""
-    if not ans:           # empty string check
+    if not ans or len(ans.strip()) == 0:  # handle empty or whitespace-only
         return ""
     ans = ans.strip().upper()
-    if ans and ans[0] in ["A","B","C","D","E"]:
+    if ans[0] in ["A", "B", "C", "D", "E"]:
         return ans[0]
     return ""
 
@@ -44,39 +44,10 @@ def grade_mcq(model_answers, student_answers):
 
 def grade_with_answer_key(model_answer_text, student_text):
     """
-    Essay grading based on keyword matching, ignoring common stopwords.
-    Returns (score_percent, feedback_string)
+    Placeholder for essay grading. For now, just returns 0.
+    Can be replaced with AI scoring.
     """
-    import re
-
-    # Basic stopwords list
-    stopwords = {
-        "the","is","and","a","an","in","on","at","of","to","for","with",
-        "by","as","from","that","this","these","those","it","its","be","are","was","were"
-    }
-
-    # Extract keywords from model answer
-    keywords = set(
-        word for word in re.findall(r"\b\w+\b", model_answer_text.lower())
-        if word not in stopwords
-    )
-
-    # Extract words from student text
-    student_words = set(
-        word for word in re.findall(r"\b\w+\b", student_text.lower())
-        if word not in stopwords
-    )
-
-    if not keywords:
-        return 0, "No keywords in answer key to grade."
-
-    matched = keywords & student_words
-    score = round(len(matched) / len(keywords) * 100, 2)
-
-    feedback_lines = [
-        f"Matched keywords: {', '.join(sorted(matched)) if matched else 'None'}",
-        f"Missing keywords: {', '.join(sorted(keywords - matched)) if keywords - matched else 'None'}"
-    ]
-    feedback = "\n".join(feedback_lines)
-
+    # Simple example: just dummy score
+    score = 0
+    feedback = "Essay grading not implemented yet."
     return score, feedback
