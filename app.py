@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Role Permissions) ----------
+# ---------- app.py (Optimized Full Version with Fast Batch Grading) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -7,7 +7,7 @@ from PIL import Image
 import pytesseract
 import os
 import hashlib
-from auto_grader import grade_with_answer_key
+from auto_grader import grade_with_answer_key, grade_mcq, parse_mcq_answers as parse_student_answers
 import plotly.express as px
 
 # ---------- App Config ----------
@@ -163,7 +163,7 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.role=None
     st.rerun()
 
-# ---------- Page Selection Based on Role ----------
+# ---------- Page Selection ----------
 if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
@@ -216,25 +216,17 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
         st.rerun()
-# ---------- Teacher/Admin Shared Page: Upload & Grade ----------
+
+# ---------- Shared Page: Upload & Grade ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
-
-    # ---------- Select Section ----------
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
-
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
-
     batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
 
-    # ---------- File Labels ----------
-    if mode == "Multiple Choice":
-        key_file_label = "Upload Teacher's MCQ Key"
-        student_file_label = "Upload Student MCQ Answers (scan or text)"
-    else:
-        key_file_label = "Upload Teacher's Essay Key"
-        student_file_label = "Upload Student Essay (scan or text)"
+    key_file_label = "Upload Teacher's MCQ Key" if mode=="Multiple Choice" else "Upload Teacher's Essay Key"
+    student_file_label = "Upload Student MCQ Answers (scan or text)" if mode=="Multiple Choice" else "Upload Student Essay (scan or text)"
 
     # ---------- Upload Answer Key ----------
     st.markdown("### Upload Teacher Answer Key (Text or Image)")
@@ -248,27 +240,23 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
         st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
-    # Load model answer for grading
     model_answer = load_answer_key()
     if not model_answer:
         st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
         st.stop()
 
-    # ---------- Single Student ----------
+    # ---------- Single Student Grading ----------
     if not batch_mode:
         student_name = st.text_input("Student Name")
         student_id = st.text_input("Student ID")
         student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
-
         if student_file and st.button("Grade Student"):
-            # Read student answer
             if student_file.type.startswith("text"):
                 student_answer = student_file.read().decode("utf-8").strip()
             else:
                 student_answer = extract_text_from_image(Image.open(student_file))
 
-            # ---------- Grading ----------
-            if mode == "Multiple Choice":
+            if mode=="Multiple Choice":
                 student_answers = parse_student_answers(student_answer)
                 score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
             else:
@@ -305,15 +293,15 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     else:
         batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
         if batch_files and st.button("Grade All Exams"):
-            results = []
+            student_texts = []
+            file_infos = []
+
             for file in batch_files:
-                # ---------- Read student answer ----------
                 if file.type.startswith("text"):
                     student_answer = file.read().decode("utf-8").strip()
                 else:
                     student_answer = extract_text_from_image(Image.open(file))
 
-                # ---------- Auto-detect Name & ID ----------
                 student_name, student_id = "Unknown", "0000"
                 try:
                     for line in student_answer.splitlines():
@@ -322,34 +310,26 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
                             student_name = line_clean.split(":", 1)[1].strip()
                         elif line_clean.lower().startswith("id:"):
                             student_id = line_clean.split(":", 1)[1].strip()
-                    # Fallback: filename John_123.txt
                     parts = os.path.splitext(file.name)[0].split("_")
                     if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
                         student_name, student_id = parts[0], parts[1]
                 except:
                     pass
 
-                # ---------- Grading ----------
-                if mode == "Multiple Choice":
-                    student_answers = parse_student_answers(student_answer)
+                student_texts.append(student_answer)
+                file_infos.append({"Name": student_name, "ID": student_id, "Answer": student_answer})
+
+            results = []
+            if mode=="Multiple Choice":
+                for info in file_infos:
+                    student_answers = parse_student_answers(info["Answer"])
                     score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
-                else:
-                    score, feedback = grade_with_answer_key(model_answer, student_answer)
+                    results.append({**info, "Score": score, "Feedback": feedback})
+            else:
+                for info in file_infos:
+                    score, feedback = grade_with_answer_key(model_answer, info["Answer"])
+                    results.append({**info, "Score": score, "Feedback": feedback})
 
-                results.append({
-                    "Student ID": student_id,
-                    "Name": student_name,
-                    "Department": department,
-                    "Subject": subject,
-                    "Answer": student_answer,
-                    "Score": score,
-                    "Feedback": feedback,
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-
-                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
-
-            # ---------- Save all results ----------
             save_path = f"results/{department}/{subject}/results.csv"
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             try:
@@ -358,8 +338,11 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             except:
                 df = pd.DataFrame(results)
             df.to_csv(save_path, index=False)
-            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
 
+            for res in results:
+                st.markdown(f"<p class='notification'>Graded {res['Name']} ({res['ID']}) → Score: {res['Score']}</p>", unsafe_allow_html=True)
+
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
 
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
@@ -394,30 +377,12 @@ if page=="📈 Analytics":
                     sub_path=f"{dept_path}/{sub}/results.csv"
                     if os.path.exists(sub_path):
                         df=pd.read_csv(sub_path)
-                        df["Department"] = dept
-                        df["Subject"] = sub
                         all_results.append(df)
         if all_results:
             df_all = pd.concat(all_results, ignore_index=True)
-            avg_dept = df_all.groupby("Department")["Score"].mean().reset_index()
-            fig1 = px.bar(avg_dept, x="Department", y="Score", title="Average Score by Department", text="Score")
-            st.plotly_chart(fig1, use_container_width=True)
-            avg_sub = df_all.groupby("Subject")["Score"].mean().reset_index()
-            fig2 = px.bar(avg_sub, x="Subject", y="Score", title="Average Score by Subject", text="Score")
-            st.plotly_chart(fig2, use_container_width=True)
+            fig = px.histogram(df_all, x="Score", nbins=20, color="Department", title="Score Distribution by Department")
+            st.plotly_chart(fig)
         else:
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
-
-
