@@ -13,6 +13,7 @@ import plotly.express as px
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- CSS Styling ----------
+# ---------- CSS Styling ----------
 st.markdown("""
 <style>
 .stApp { background-color:#ffffff; color:#A9A9A9!important; }
@@ -68,6 +69,7 @@ tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px s
 .feedback-wrong { background-color:#dc3545; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ---------- App Title ----------
 st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
@@ -410,6 +412,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
