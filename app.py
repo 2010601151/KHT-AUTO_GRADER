@@ -1,4 +1,4 @@
-```python
+
 # ---------- app.py (Updated with auto_grader.py MCQ Integration) ----------
 import streamlit as st
 import json
@@ -354,5 +354,5 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             except:
                 df = pd.DataFrame(results)
             df.to_csv(save_path, index=False)
-            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
-```
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True) 
+
