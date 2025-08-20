@@ -13,10 +13,9 @@ import plotly.express as px
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- CSS Styling ----------
-# ---------- CSS Styling ----------
 st.markdown("""
 <style>
-.stApp { background-color:#ffffff; color:#A9A9A9!important; }
+.stApp { background-color:#ffffff; color: #000000 !important; }
 section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color:#ffffff !important; }
 .login-card { background-color:#ffffff; color:#000000 !important; padding: 1.5rem; border-radius: 10px;
@@ -30,34 +29,8 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
-
-/* Fix all inputs, textareas, selects */
-input, textarea, select {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-weight: bold;
-    border: 1px solid #6a1b9a !important;
-}
-input:focus, textarea:focus, select:focus {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-}
-/* Streamlit BaseWeb input fix for placeholder and typed text */
-div[data-baseweb="input"] input,
-div[data-baseweb="input"] textarea,
-div[data-baseweb="select"] select {
-    color: #000000 !important;
-    background-color: #ffffff !important;
-    font-weight: bold;
-}
-div[data-baseweb="input"] input::placeholder,
-div[data-baseweb="input"] textarea::placeholder,
-div[data-baseweb="select"] select::placeholder {
-    color: #000000 !important;
-    opacity: 1 !important;
-}
-
-label, .stFileUploader label { color:#000000 !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
 thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
 tbody tr:nth-child(odd) { background-color:#f3e5f5 !important; }
@@ -69,7 +42,6 @@ tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px s
 .feedback-wrong { background-color:#dc3545; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ---------- App Title ----------
 st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
@@ -412,6 +384,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
