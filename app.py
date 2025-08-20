@@ -7,7 +7,7 @@ from PIL import Image
 import pytesseract
 import os
 import hashlib
-from auto_grader import grade_with_answer_key
+from auto_grader import grade_with_answer_key, normalize_choice  # <-- fixed import
 import plotly.express as px
 
 # ---------- App Config ----------
@@ -94,27 +94,39 @@ def parse_student_answers(text):
     answers = {}
     for line in text.splitlines():
         if ":" in line:
-            q,a = line.split(":",1)
+            q, a = line.split(":", 1)
             answers[q.strip()] = a.strip()
     return answers
 
 def grade_mcq(model_answers, student_answers):
+    """
+    Safe MCQ grading using normalize_choice from auto_grader.py
+    Prevents IndexError for empty/malformed answers.
+    """
     score = 0
     feedback = ""
     total = len(model_answers)
+
     for idx, line in enumerate(model_answers):
-        if ":" in line:
-            q,a = line.split(":",1)
-            a=a.strip()
-            s_ans = student_answers.get(q.strip(),"")
-            if s_ans == a:
-                score += 1
-                feedback += f"Q{idx+1}: ✅ Correct\n"
-            elif s_ans:
-                feedback += f"Q{idx+1}: ⚠️ Partially Correct ({s_ans})\n"
-            else:
-                feedback += f"Q{idx+1}: ❌ Missing\n"
-    final_score = round(score/total*100,2) if total>0 else 0
+        if ":" not in line:
+            continue
+        q, correct = line.split(":", 1)
+        q = q.strip()
+        correct = correct.strip()
+        student = student_answers.get(q, "").strip()
+
+        norm_student = normalize_choice(student)
+        norm_correct = normalize_choice(correct)
+
+        if norm_student == norm_correct and norm_student != "":
+            score += 1
+            feedback += f"Q{idx+1}: ✅ Correct\n"
+        elif norm_student != "" and norm_student != norm_correct:
+            feedback += f"Q{idx+1}: ⚠️ Partially Correct ({student})\n"
+        else:
+            feedback += f"Q{idx+1}: ❌ Missing\n"
+
+    final_score = round(score / total * 100, 2) if total > 0 else 0
     return final_score, feedback
 
 # ---------- Session State ----------
@@ -182,7 +194,6 @@ if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", ["📊 Admin Dashboard","📥 Upload Answer Key","📤 Upload & Grade Student Exam","🔍 Search Results (ID or Name)","📈 Analytics"])
 else:
     page = st.sidebar.selectbox("📂 Select Page", ["📥 Upload Answer Key","📤 Upload & Grade Student Exam","🔍 Search Results (ID or Name)","📊 View Dashboard","📈 Analytics"])
-
 # ---------- Admin Dashboard ----------
 if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
     teachers = load_teachers()
@@ -385,8 +396,6 @@ if page=="📈 Analytics":
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
 
-
-
 # ---------- Search Results ----------
 if page=="🔍 Search Results (ID or Name)":
     st.subheader("🔍 Search Student Results")
@@ -418,12 +427,3 @@ if page=="🔍 Search Results (ID or Name)":
                 st.markdown(f"<p class='notification'>No results found for '{search_query}'</p>", unsafe_allow_html=True)
         else:
             st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
