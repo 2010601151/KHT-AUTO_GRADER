@@ -29,7 +29,7 @@ animation: fadeIn 0.6s ease-in-out; }
 @keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
-div.stButton > button:hover { background-color:#ffffff; color:black !important; }
+div.stButton > button:hover { background-color:#ffffff; color:white !important; }
 input,textarea,select { border:1px solid #ffffff !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#ffffff !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
@@ -385,6 +385,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
