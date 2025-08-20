@@ -1,5 +1,4 @@
-
-# ---------- app.py (Updated with auto_grader.py MCQ Integration) ----------
+# ---------- app.py (Fully Fixed & Complete KHT AI Auto-Grader) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -31,7 +30,7 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#4a0072; color:black !important; }
-input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#000000 !important; font-weight:bold; }
 label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
 thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
@@ -92,7 +91,7 @@ def extract_text_from_image(image):
     try: 
         return pytesseract.image_to_string(image)
     except Exception as e:
-        st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
+        st.warning(f"OCR Error: {e}")
         return ""
 
 def color_rows(val):
@@ -100,6 +99,17 @@ def color_rows(val):
     elif val>=60: color='#fff3cd'
     else: color='#f8d7da'
     return f'background-color:{color}'
+
+def load_results(department, subject):
+    path = f"results/{department}/{subject}/results.csv"
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    else:
+        return pd.DataFrame()
+
+def save_results(df, department, subject):
+    os.makedirs(f"results/{department}/{subject}", exist_ok=True)
+    df.to_csv(f"results/{department}/{subject}/results.csv", index=False)
 
 # ---------- Session State ----------
 if "authenticated" not in st.session_state: st.session_state.authenticated=False
@@ -127,7 +137,7 @@ if not st.session_state.authenticated:
                 st.session_state.role="Admin"
                 st.rerun()
             else:
-                st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
+                st.sidebar.warning("❌ Incorrect admin credentials.")
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     if login_type=="Teacher":
@@ -145,16 +155,16 @@ if not st.session_state.authenticated:
                 st.session_state.role="Teacher"
                 st.rerun()
             else:
-                st.sidebar.markdown("<p class='notification'>❌ Incorrect username or password.</p>", unsafe_allow_html=True)
+                st.sidebar.warning("❌ Incorrect username or password.")
         if register_btn:
             if teacher_user in teachers or teacher_user in pending_teachers:
-                st.sidebar.markdown("<p class='notification'>❌ Username already exists.</p>", unsafe_allow_html=True)
+                st.sidebar.warning("❌ Username already exists.")
             elif teacher_user and teacher_pass:
                 pending_teachers[teacher_user]=hash_password(teacher_pass)
                 save_pending_teachers(pending_teachers)
-                st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
+                st.sidebar.success("✅ Registration submitted for admin approval!")
             else:
-                st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
+                st.sidebar.info("⚠️ Enter username and password to register.")
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
@@ -164,7 +174,7 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.role=None
     st.rerun()
 
-# ---------- Page Selection Based on Role ----------
+# ---------- Page Selection ----------
 if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
@@ -173,7 +183,7 @@ if st.session_state.role=="Admin":
         "🔍 Search Results (ID or Name)",
         "📈 Analytics"
     ])
-elif st.session_state.role=="Teacher":
+else:
     page = st.sidebar.selectbox("📂 Select Page", [
         "📥 Upload Answer Key",
         "📤 Upload & Grade Student Exam",
@@ -181,8 +191,6 @@ elif st.session_state.role=="Teacher":
         "📊 View Dashboard",
         "📈 Analytics"
     ])
-else:
-    st.stop()
 
 # ---------- Admin Dashboard ----------
 if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
@@ -197,9 +205,8 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         if col3.button("Remove", key=f"remove_{username}"):
             st.session_state.remove_teacher=username
     if st.session_state.remove_teacher:
-        if st.session_state.remove_teacher in teachers:
-            teachers.pop(st.session_state.remove_teacher)
-            save_teachers(teachers)
+        teachers.pop(st.session_state.remove_teacher, None)
+        save_teachers(teachers)
         st.session_state.remove_teacher=None
         st.rerun()
     st.markdown("### ⏳ Pending Teacher Registrations")
@@ -210,28 +217,22 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         if col3.button("Approve", key=f"approve_{username}"):
             st.session_state.approve_teacher=username
     teacher_to_approve = st.session_state.get("approve_teacher", None)
-    if teacher_to_approve and teacher_to_approve in pending_teachers:
-        teachers[teacher_to_approve] = pending_teachers[teacher_to_approve]
+    if teacher_to_approve:
+        teachers[teacher_to_approve] = pending_teachers.pop(teacher_to_approve)
         save_teachers(teachers)
-        pending_teachers.pop(teacher_to_approve)
         save_pending_teachers(pending_teachers)
-        st.session_state.approve_teacher = None
+        st.session_state.approve_teacher=None
         st.rerun()
 
-# ---------- Teacher/Admin Shared Page: Upload & Grade ----------
+# ---------- Upload & Grade Student Exam ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
-
-    # ---------- Select Section ----------
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
-
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
-
     batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
 
-    # ---------- File Labels ----------
-    if mode == "Multiple Choice":
+    if mode=="Multiple Choice":
         key_file_label = "Upload Teacher's MCQ Key"
         student_file_label = "Upload Student MCQ Answers (scan or text)"
     else:
@@ -242,117 +243,98 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.markdown("### Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader(key_file_label, type=["txt","jpg","jpeg","png"])
     if key_file:
-        if key_file.type.startswith("text"): 
+        if key_file.type.startswith("text"):
             teacher_key = key_file.read().decode("utf-8").strip()
-        else: 
+        else:
             teacher_key = extract_text_from_image(Image.open(key_file))
         save_answer_key(teacher_key)
         st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
+        st.success("✅ Answer Key saved successfully!")
 
-    # Load model answer for grading
+    # ---------- Load model answer ----------
     model_answer = load_answer_key()
     if not model_answer:
-        st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
+        st.warning("⚠️ Please upload the answer key first.")
         st.stop()
 
-    # ---------- Single Student ----------
-    if not batch_mode:
-        student_name = st.text_input("Student Name")
-        student_id = st.text_input("Student ID")
-        student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
-
-        if student_file and st.button("Grade Student"):
-            if student_file.type.startswith("text"):
-                student_answer = student_file.read().decode("utf-8").strip()
+    # ---------- Upload Student Answers ----------
+    st.markdown("### Upload Student Answer File(s)")
+    uploaded_files = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png","csv"], accept_multiple_files=batch_mode)
+    if uploaded_files:
+        results = []
+        for file in uploaded_files:
+            if file.type=="text/csv":
+                df_student = pd.read_csv(file)
+            elif file.type.startswith("text"):
+                df_student = pd.DataFrame([{"Student ID":"Unknown","Name":"Unknown","Answers":file.read().decode("utf-8")}])
             else:
-                student_answer = extract_text_from_image(Image.open(student_file))
+                text = extract_text_from_image(Image.open(file))
+                df_student = pd.DataFrame([{"Student ID":"Unknown","Name":"Unknown","Answers":text}])
+            
+            for _, row in df_student.iterrows():
+                if mode=="Multiple Choice":
+                    student_ans = parse_mcq_answers(row["Answers"])
+                    score, feedback = grade_mcq(student_ans, parse_mcq_answers(model_answer))
+                else:
+                    score, feedback = grade_with_answer_key(row["Answers"], model_answer)
+                results.append({"Student ID": row.get("Student ID","Unknown"),
+                                "Name": row.get("Name","Unknown"),
+                                "Score": score,
+                                "Feedback": feedback})
+        df_results = pd.DataFrame(results)
+        st.markdown("### Grading Results")
+        st.dataframe(df_results.style.applymap(color_rows, subset=["Score"]))
+        save_results(df_results, department, subject)
+        st.success(f"✅ Graded {len(results)} student file(s) successfully!")
 
-            # ---------- Grading ----------
-            if mode == "Multiple Choice":
-                student_answers = parse_mcq_answers(student_answer)
-                score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+# ---------- Search Results ----------
+if page=="🔍 Search Results (ID or Name)":
+    st.subheader("🔎 Search Student Results")
+    search_dept = st.text_input("Department to Search", value="General").strip().replace("/", "-")
+    search_subj = st.text_input("Subject to Search", value="Misc").strip().replace("/", "-")
+    search_query = st.text_input("Enter Student ID or Name").strip().lower()
+    if st.button("Search"):
+        df = load_results(search_dept, search_subj)
+        if df.empty:
+            st.info("No results found for this department/subject.")
+        else:
+            filtered = df[df["Student ID"].str.lower().str.contains(search_query) |
+                          df["Name"].str.lower().str.contains(search_query)]
+            if filtered.empty:
+                st.warning("No matching student found.")
             else:
-                score, feedback = grade_with_answer_key(model_answer, student_answer)
+                st.dataframe(filtered.style.applymap(color_rows, subset=["Score"]))
 
-            st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
-            st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
-            for line in feedback.split("\n"):
-                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
-                st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
-
-            # ---------- Save Result ----------
-            result = {
-                "Student ID": student_id,
-                "Name": student_name,
-                "Department": department,
-                "Subject": subject,
-                "Answer": student_answer,
-                "Score": score,
-                "Feedback": feedback,
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            save_path = f"results/{department}/{subject}/results.csv"
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            try:
-                df = pd.read_csv(save_path)
-                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-            except:
-                df = pd.DataFrame([result])
-            df.to_csv(save_path, index=False)
-            st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
-
-    # ---------- Batch Grading ----------
+# ---------- Analytics ----------
+if page=="📈 Analytics":
+    st.subheader("📊 Analytics & Performance Charts")
+    dept = st.text_input("Department", value="General").strip().replace("/", "-")
+    subj = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+    df = load_results(dept, subj)
+    if df.empty:
+        st.info("No results available for this department/subject.")
     else:
-        batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
-        if batch_files and st.button("Grade All Exams"):
-            results = []
-            for file in batch_files:
-                if file.type.startswith("text"):
-                    student_answer = file.read().decode("utf-8").strip()
-                else:
-                    student_answer = extract_text_from_image(Image.open(file))
+        st.markdown("### Score Distribution")
+        fig = px.histogram(df, x="Score", nbins=10, color_discrete_sequence=['#6a1b9a'])
+        st.plotly_chart(fig, use_container_width=True)
 
-                student_name, student_id = "Unknown", "0000"
-                try:
-                    for line in student_answer.splitlines():
-                        line_clean = line.strip()
-                        if line_clean.lower().startswith("name:"):
-                            student_name = line_clean.split(":", 1)[1].strip()
-                        elif line_clean.lower().startswith("id:"):
-                            student_id = line_clean.split(":", 1)[1].strip()
-                    parts = os.path.splitext(file.name)[0].split("_")
-                    if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
-                        student_name, student_id = parts[0], parts[1]
-                except:
-                    pass
+        st.markdown("### Top Performers")
+        top_df = df.sort_values(by="Score", ascending=False).head(5)
+        st.table(top_df[["Student ID","Name","Score"]])
 
-                if mode == "Multiple Choice":
-                    student_answers = parse_mcq_answers(student_answer)
-                    score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
-                else:
-                    score, feedback = grade_with_answer_key(model_answer, student_answer)
-
-                results.append({
-                    "Student ID": student_id,
-                    "Name": student_name,
-                    "Department": department,
-                    "Subject": subject,
-                    "Answer": student_answer,
-                    "Score": score,
-                    "Feedback": feedback,
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-
-                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
-
-            save_path = f"results/{department}/{subject}/results.csv"
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            try:
-                df = pd.read_csv(save_path)
-                df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
-            except:
-                df = pd.DataFrame(results)
-            df.to_csv(save_path, index=False)
-            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True) 
-
+# ---------- Teacher Dashboard ----------
+if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
+    st.subheader("📊 Teacher Dashboard")
+    st.markdown("### Your Uploaded Results Summary")
+    dept = st.text_input("Department", value="General").strip().replace("/", "-")
+    subj = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+    df = load_results(dept, subj)
+    if df.empty:
+        st.info("No results found. Please grade some exams first.")
+    else:
+        st.markdown("### All Students")
+        st.dataframe(df.style.applymap(color_rows, subset=["Score"]))
+        avg_score = df["Score"].mean()
+        st.markdown(f"**Average Score:** {avg_score:.2f}")
+        fig = px.pie(df, names="Score", title="Score Distribution")
+        st.plotly_chart(fig, use_container_width=True)
