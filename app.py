@@ -1,4 +1,4 @@
-# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Role Permissions) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Admin/Teacher, Batch, Analytics) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -335,3 +335,95 @@ if batch_mode:
             df = pd.DataFrame(results)
         df.to_csv(save_path, index=False)
         st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
+# ---------- Teacher Dashboard ----------
+if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
+    st.subheader("📊 Your Graded Results")
+    if os.path.exists("results"):
+        all_results = []
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            st.dataframe(df_all.style.applymap(color_rows, subset=["Score"]))
+        else:
+            st.markdown("<p class='notification'>No results found.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
+
+# ---------- Analytics ----------
+if page=="📈 Analytics":
+    st.subheader("📈 Score Analytics")
+    if os.path.exists("results"):
+        all_results = []
+        for dept in os.listdir("results"):
+            dept_path=f"results/{dept}"
+            if os.path.isdir(dept_path):
+                for sub in os.listdir(dept_path):
+                    sub_path=f"{dept_path}/{sub}/results.csv"
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        df["Department"] = dept
+                        df["Subject"] = sub
+                        all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            avg_dept = df_all.groupby("Department")["Score"].mean().reset_index()
+            fig1 = px.bar(avg_dept, x="Department", y="Score", title="Average Score by Department", text="Score")
+            st.plotly_chart(fig1, use_container_width=True)
+            avg_sub = df_all.groupby("Subject")["Score"].mean().reset_index()
+            fig2 = px.bar(avg_sub, x="Subject", y="Score", title="Average Score by Subject", text="Score")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
+
+
+# ---------- Search Results ----------
+if page=="🔍 Search Results (ID or Name)":
+    st.subheader("🔍 Search Student Results")
+    search_query = st.text_input("Enter Student Name or ID").strip().lower()
+    
+    if search_query:
+        all_results = []
+        if os.path.exists("results"):
+            for dept in os.listdir("results"):
+                dept_path = f"results/{dept}"
+                if os.path.isdir(dept_path):
+                    for sub in os.listdir(dept_path):
+                        sub_path = f"{dept_path}/{sub}/results.csv"
+                        if os.path.exists(sub_path):
+                            df = pd.read_csv(sub_path)
+                            df["Department"] = dept
+                            df["Subject"] = sub
+                            all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            df_filtered = df_all[
+                df_all["Student ID"].astype(str).str.lower().str.contains(search_query) |
+                df_all["Name"].astype(str).str.lower().str.contains(search_query)
+            ]
+            if not df_filtered.empty:
+                st.dataframe(df_filtered.style.applymap(color_rows, subset=["Score"]))
+                st.markdown(f"<p class='notification'>Found {len(df_filtered)} result(s) matching '{search_query}'</p>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<p class='notification'>No results found for '{search_query}'</p>", unsafe_allow_html=True)
+        else:
+            st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
