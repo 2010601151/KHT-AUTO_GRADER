@@ -1,4 +1,4 @@
-# ---------- app.py (Complete Full Version with Fast Batch Grading & Analytics) ----------
+# ---------- app.py (Full KHT AI Auto-Grader with Batch Grading & Role Permissions) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -7,93 +7,42 @@ from PIL import Image
 import pytesseract
 import os
 import hashlib
-from auto_grader import grade_with_answer_key, grade_mcq, parse_mcq_answers as parse_student_answers
+from auto_grader import grade_with_answer_key
 import plotly.express as px
 
 # ---------- App Config ----------
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# ---------- UI Styles + Dark Mode ----------
+# ---------- CSS Styling ----------
 st.markdown("""
 <style>
-/* --- Default Light Theme --- */
-.stApp { background:#ffffff; color:#000000; }
-section[data-testid="stSidebar"] { background:#f1f3f6; }
-section[data-testid="stSidebar"] * { color:#000000; }
-
-h1,h2,h3,h4,h5,h6 { color:#000000; font-weight:700; }
-
-/* Buttons */
-div.stButton > button {
-  background:#007bff; color:#ffffff!important;
-  border-radius:8px; padding:6px 16px;
-}
-div.stButton > button:hover { background:#0056b3; }
-
-/* Inputs */
-input, textarea, select,
-div[data-baseweb="input"] input,
-div[data-baseweb="input"] textarea,
-div[data-baseweb="select"] select {
-  background:#ffffff!important; color:#000000!important;
-  border:1px solid #ccc!important;
-  border-radius:6px;
-}
-input::placeholder, textarea::placeholder { color:#555!important; }
-
-/* Tables */
-table { border:2px solid #007bff!important; color:#000000!important; }
-thead th { background:#007bff!important; color:#ffffff!important; }
-tbody tr:nth-child(odd) { background:#f9f9f9!important; }
-tbody tr:nth-child(even) { background:#e9ecef!important; }
-tbody td { color:#000000!important; border:1px solid #ccc!important; }
-
-/* OCR Text Box */
-.ocr-box {
-  background:#f8f9fa;
-  border:1px solid #ddd;
-  padding:10px;
-  border-radius:6px;
-  font-family:monospace;
-  color:#000000!important;
-}
-
-/* Feedback styles */
-.feedback-correct { background:#28a745; color:#fff!important; padding:6px; border-radius:5px; }
-.feedback-partial { background:#ffc107; color:#000!important; padding:6px; border-radius:5px; }
-.feedback-wrong   { background:#dc3545; color:#fff!important; padding:6px; border-radius:5px; }
+.stApp { background-color:#ffffff; color: #000000 !important; }
+section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
+section[data-testid="stSidebar"] * { color:#ffffff !important; }
+.login-card { background-color:#ffffff; color:#000000 !important; padding: 1.5rem; border-radius: 10px;
+box-shadow: 0px 4px 15px rgba(0,0,0,0.3); max-width: 280px; margin: 2rem auto;
+transform: translateX(-150%); opacity: 0; animation: slideBounce 0.8s forwards ease-out; }
+@keyframes slideBounce { 0% { transform: translateX(-150%); opacity: 0; }
+70% { transform: translateX(10px); opacity: 1; } 100% { transform: translateX(0); opacity: 1; } }
+.notification { color:black; font-weight:bold; font-size:16px; padding:5px 10px; border-radius:5px;
+animation: fadeIn 0.6s ease-in-out; }
+@keyframes fadeIn { from {opacity:0; transform: translateY(-10px);} to {opacity:1; transform: translateY(0);} }
+h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
+div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
+div.stButton > button:hover { background-color:#4a0072; color:black !important; }
+input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+label,.stFileUploader label { color:#000000 !important; font-weight:bold; }
+table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
+thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
+tbody tr:nth-child(odd) { background-color:#f3e5f5 !important; }
+tbody tr:nth-child(even) { background-color:#ffffff !important; }
+tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px solid #ddd !important; }
+.ocr-box { background-color:#f7f7f7; color:#000000 !important; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
+.feedback-correct { background-color:#28a745; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
+.feedback-partial { background-color:#ffc107; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
+.feedback-wrong { background-color:#dc3545; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
 </style>
 """, unsafe_allow_html=True)
-
-# ---------- Dark Mode Toggle ----------
-dark_mode = st.sidebar.checkbox("🌙 Dark Mode")
-if dark_mode:
-    st.markdown("""
-    <style>
-    .stApp { background:#121212; color:#f5f5f5!important; }
-    section[data-testid="stSidebar"] { background:#1e1e1e; }
-    section[data-testid="stSidebar"] * { color:#f5f5f5!important; }
-    h1,h2,h3,h4,h5,h6 { color:#f5f5f5!important; }
-    div.stButton > button { background:#bb86fc; color:#000!important; }
-    div.stButton > button:hover { background:#9a67ea; }
-    input, textarea, select,
-    div[data-baseweb="input"] input,
-    div[data-baseweb="input"] textarea,
-    div[data-baseweb="select"] select {
-      background:#1e1e1e!important; color:#f5f5f5!important; border:1px solid #bb86fc!important;
-    }
-    input::placeholder, textarea::placeholder { color:#bbb!important; opacity:1!important; }
-    table { border:2px solid #bb86fc!important; color:#f5f5f5!important; }
-    thead th { background:#bb86fc!important; color:#000!important; }
-    tbody tr:nth-child(odd) { background:#2c2c2c!important; }
-    tbody tr:nth-child(even) { background:#1e1e1e!important; }
-    tbody td { color:#f5f5f5!important; border:1px solid #444!important; }
-    .ocr-box { background:#2c2c2c; border:1px solid #555; color:#f5f5f5!important; }
-    .feedback-correct { background:#4caf50; color:#fff!important; }
-    .feedback-partial { background:#ff9800; color:#fff!important; }
-    .feedback-wrong   { background:#f44336; color:#fff!important; }
-    </style>
-    """, unsafe_allow_html=True)
 
 # ---------- App Title ----------
 st.markdown("<h1 style='color:#000000;'>KHT AI Auto-Grader</h1>", unsafe_allow_html=True)
@@ -117,19 +66,34 @@ def save_json(path, data):
     with open(path,"w") as f:
         json.dump(data, f)
 
-def load_teachers(): return load_json("teachers.json")
-def save_teachers(data): save_json("teachers.json", data)
-def load_pending_teachers(): return load_json("pending_teachers.json")
-def save_pending_teachers(data): save_json("pending_teachers.json", data)
+def load_teachers(): 
+    return load_json("teachers.json")
+
+def save_teachers(data): 
+    save_json("teachers.json", data)
+
+def load_pending_teachers(): 
+    return load_json("pending_teachers.json")
+
+def save_pending_teachers(data): 
+    save_json("pending_teachers.json", data)
+
 def load_answer_key():
-    try: return json.load(open("answer_key.json","r")).get("key","")
-    except: return ""
-def save_answer_key(text): json.dump({"key":text}, open("answer_key.json","w"))
+    try: 
+        return json.load(open("answer_key.json","r")).get("key","")
+    except: 
+        return ""
+
+def save_answer_key(text): 
+    json.dump({"key":text}, open("answer_key.json","w"))
+
 def extract_text_from_image(image):
-    try: return pytesseract.image_to_string(image)
+    try: 
+        return pytesseract.image_to_string(image)
     except Exception as e:
         st.markdown(f"<p class='notification'>OCR Error: {e}</p>", unsafe_allow_html=True)
         return ""
+
 def color_rows(val):
     if val>=85: color='#d4edda'
     elif val>=60: color='#fff3cd'
@@ -137,8 +101,10 @@ def color_rows(val):
     return f'background-color:{color}'
 
 # ---------- Session State ----------
-for key in ["authenticated","role","remove_teacher","approve_teacher"]:
-    if key not in st.session_state: st.session_state[key]=None
+if "authenticated" not in st.session_state: st.session_state.authenticated=False
+if "role" not in st.session_state: st.session_state.role=None
+if "remove_teacher" not in st.session_state: st.session_state.remove_teacher=None
+if "approve_teacher" not in st.session_state: st.session_state.approve_teacher=None
 
 # ---------- Sidebar Header ----------
 st.sidebar.markdown("<h1 style='color:#ffffff; text-align:center;'>KHT AI AUTO GRADER</h1>", unsafe_allow_html=True)
@@ -150,6 +116,7 @@ ADMIN_PASSWORD_HASH=hash_password("admin123")
 
 if not st.session_state.authenticated:
     if login_type=="Admin":
+        st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.sidebar.subheader("🔐 Admin Login")
         admin_user=st.sidebar.text_input("Username")
         admin_pass=st.sidebar.text_input("Password", type="password")
@@ -160,8 +127,10 @@ if not st.session_state.authenticated:
                 st.rerun()
             else:
                 st.sidebar.markdown("<p class='notification'>❌ Incorrect admin credentials.</p>", unsafe_allow_html=True)
-        st.stop()
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
     if login_type=="Teacher":
+        st.sidebar.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.sidebar.subheader("🔐 Teacher Login / Register")
         teachers = load_teachers()
         pending_teachers = load_pending_teachers()
@@ -185,7 +154,8 @@ if not st.session_state.authenticated:
                 st.sidebar.markdown("<p class='notification'>✅ Registration submitted for admin approval!</p>", unsafe_allow_html=True)
             else:
                 st.sidebar.markdown("<p class='notification'>⚠️ Enter username and password to register.</p>", unsafe_allow_html=True)
-        st.stop()
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
 
 # ---------- Logout ----------
 if st.sidebar.button("🚪 Logout"):
@@ -193,7 +163,7 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.role=None
     st.rerun()
 
-# ---------- Page Selection ----------
+# ---------- Page Selection Based on Role ----------
 if st.session_state.role=="Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
@@ -246,135 +216,208 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
         st.rerun()
-
-# ---------- Shared Page: Upload & Grade ----------
+# ---------- Teacher/Admin Shared Page: Upload & Grade ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
+
+    # ---------- Select Section ----------
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
+
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+
     batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
 
-    key_file_label = "Upload Teacher's MCQ Key" if mode=="Multiple Choice" else "Upload Teacher's Essay Key"
-    student_file_label = "Upload Student MCQ Answers (scan or text)" if mode=="Multiple Choice" else "Upload Student Essay (scan or text)"
+    # ---------- File Labels ----------
+    if mode == "Multiple Choice":
+        key_file_label = "Upload Teacher's MCQ Key"
+        student_file_label = "Upload Student MCQ Answers (scan or text)"
+    else:
+        key_file_label = "Upload Teacher's Essay Key"
+        student_file_label = "Upload Student Essay (scan or text)"
 
+    # ---------- Upload Answer Key ----------
     st.markdown("### Upload Teacher Answer Key (Text or Image)")
     key_file = st.file_uploader(key_file_label, type=["txt","jpg","jpeg","png"])
     if key_file:
-        if key_file.type.startswith("text"): teacher_key = key_file.read().decode("utf-8").strip()
-        else: teacher_key = extract_text_from_image(Image.open(key_file))
+        if key_file.type.startswith("text"): 
+            teacher_key = key_file.read().decode("utf-8").strip()
+        else: 
+            teacher_key = extract_text_from_image(Image.open(key_file))
         save_answer_key(teacher_key)
         st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
 
+    # Load model answer for grading
     model_answer = load_answer_key()
     if not model_answer:
         st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
         st.stop()
 
-# ---------- Single Student Grading ----------
-if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"] and not batch_mode:
-    student_name = st.text_input("Student Name")
-    student_id = st.text_input("Student ID")
-    student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
-    if student_file and st.button("Grade Student"):
-        if student_file.type.startswith("text"):
-            student_answer = student_file.read().decode("utf-8").strip()
-        else:
-            student_answer = extract_text_from_image(Image.open(student_file))
+    # ---------- Single Student ----------
+    if not batch_mode:
+        student_name = st.text_input("Student Name")
+        student_id = st.text_input("Student ID")
+        student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
 
-        if mode=="Multiple Choice":
-            student_answers = parse_student_answers(student_answer)
-            score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
-        else:
-            score, feedback = grade_with_answer_key(model_answer, student_answer)
+        if student_file and st.button("Grade Student"):
+            # Read student answer
+            if student_file.type.startswith("text"):
+                student_answer = student_file.read().decode("utf-8").strip()
+            else:
+                student_answer = extract_text_from_image(Image.open(student_file))
 
-        st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
-        for line in feedback.split("\n"):
-            cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
-            st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
-
-        # Save result
-        result = {"Student ID": student_id, "Name": student_name, "Department": department, "Subject": subject,
-                  "Answer": student_answer, "Score": score, "Feedback": feedback,
-                  "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        save_path = f"results/{department}/{subject}/results.csv"
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        try: df = pd.read_csv(save_path); df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-        except: df = pd.DataFrame([result])
-        df.to_csv(save_path, index=False)
-        st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
-
-# ---------- Batch Grading ----------
-if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"] and batch_mode:
-    batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
-    if batch_files and st.button("Grade All Exams"):
-        student_texts, file_infos = [], []
-        for file in batch_files:
-            if file.type.startswith("text"): student_answer = file.read().decode("utf-8").strip()
-            else: student_answer = extract_text_from_image(Image.open(file))
-            student_name, student_id = "Unknown", "0000"
-            try:
-                for line in student_answer.splitlines():
-                    if line.lower().startswith("name:"): student_name = line.split(":",1)[1].strip()
-                    if line.lower().startswith("id:"): student_id = line.split(":",1)[1].strip()
-                parts = os.path.splitext(file.name)[0].split("_")
-                if (student_name=="Unknown" or student_id=="0000") and len(parts)>=2: student_name, student_id = parts[0], parts[1]
-            except: pass
-            student_texts.append(student_answer)
-            file_infos.append({"Name": student_name, "ID": student_id, "Answer": student_answer})
-
-        results=[]
-        if mode=="Multiple Choice":
-            for info in file_infos:
-                student_answers = parse_student_answers(info["Answer"])
+            # ---------- Grading ----------
+            if mode == "Multiple Choice":
+                student_answers = parse_student_answers(student_answer)
                 score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
-                results.append({**info,"Score":score,"Feedback":feedback})
-        else:
-            for info in file_infos:
-                score, feedback = grade_with_answer_key(model_answer, info["Answer"])
-                results.append({**info,"Score":score,"Feedback":feedback})
+            else:
+                score, feedback = grade_with_answer_key(model_answer, student_answer)
 
-        save_path = f"results/{department}/{subject}/results.csv"
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        try: df = pd.read_csv(save_path); df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
-        except: df = pd.DataFrame(results)
-        df.to_csv(save_path, index=False)
+            st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
+            st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
+            for line in feedback.split("\n"):
+                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
 
-        for res in results:
-            st.markdown(f"<p class='notification'>Graded {res['Name']} ({res['ID']}) → Score: {res['Score']}</p>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+            # ---------- Save Result ----------
+            result = {
+                "Student ID": student_id,
+                "Name": student_name,
+                "Department": department,
+                "Subject": subject,
+                "Answer": student_answer,
+                "Score": score,
+                "Feedback": feedback,
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+            except:
+                df = pd.DataFrame([result])
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
+
+    # ---------- Batch Grading ----------
+    else:
+        batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
+        if batch_files and st.button("Grade All Exams"):
+            results = []
+            for file in batch_files:
+                # ---------- Read student answer ----------
+                if file.type.startswith("text"):
+                    student_answer = file.read().decode("utf-8").strip()
+                else:
+                    student_answer = extract_text_from_image(Image.open(file))
+
+                # ---------- Auto-detect Name & ID ----------
+                student_name, student_id = "Unknown", "0000"
+                try:
+                    for line in student_answer.splitlines():
+                        line_clean = line.strip()
+                        if line_clean.lower().startswith("name:"):
+                            student_name = line_clean.split(":", 1)[1].strip()
+                        elif line_clean.lower().startswith("id:"):
+                            student_id = line_clean.split(":", 1)[1].strip()
+                    # Fallback: filename John_123.txt
+                    parts = os.path.splitext(file.name)[0].split("_")
+                    if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
+                        student_name, student_id = parts[0], parts[1]
+                except:
+                    pass
+
+                # ---------- Grading ----------
+                if mode == "Multiple Choice":
+                    student_answers = parse_student_answers(student_answer)
+                    score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+                else:
+                    score, feedback = grade_with_answer_key(model_answer, student_answer)
+
+                results.append({
+                    "Student ID": student_id,
+                    "Name": student_name,
+                    "Department": department,
+                    "Subject": subject,
+                    "Answer": student_answer,
+                    "Score": score,
+                    "Feedback": feedback,
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+
+                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
+
+            # ---------- Save all results ----------
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
+            except:
+                df = pd.DataFrame(results)
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
 
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
     st.subheader("📊 Your Graded Results")
     if os.path.exists("results"):
-        all_results=[]
+        all_results = []
         for dept in os.listdir("results"):
             dept_path=f"results/{dept}"
             if os.path.isdir(dept_path):
                 for sub in os.listdir(dept_path):
                     sub_path=f"{dept_path}/{sub}/results.csv"
-                    if os.path.exists(sub_path): all_results.append(pd.read_csv(sub_path))
-        if all_results: df_all=pd.concat(all_results, ignore_index=True); st.dataframe(df_all.style.applymap(color_rows, subset=["Score"]))
-        else: st.markdown("<p class='notification'>No results found.</p>", unsafe_allow_html=True)
-    else: st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        all_results.append(df)
+        if all_results:
+            df_all = pd.concat(all_results, ignore_index=True)
+            st.dataframe(df_all.style.applymap(color_rows, subset=["Score"]))
+        else:
+            st.markdown("<p class='notification'>No results found.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
 
 # ---------- Analytics ----------
 if page=="📈 Analytics":
     st.subheader("📈 Score Analytics")
     if os.path.exists("results"):
-        all_results=[]
+        all_results = []
         for dept in os.listdir("results"):
             dept_path=f"results/{dept}"
             if os.path.isdir(dept_path):
                 for sub in os.listdir(dept_path):
                     sub_path=f"{dept_path}/{sub}/results.csv"
-                    if os.path.exists(sub_path): all_results.append(pd.read_csv(sub_path))
+                    if os.path.exists(sub_path):
+                        df=pd.read_csv(sub_path)
+                        df["Department"] = dept
+                        df["Subject"] = sub
+                        all_results.append(df)
         if all_results:
-            df_all=pd.concat(all_results, ignore_index=True)
-            fig=px.histogram(df_all, x="Score", nbins=20, color="Department", title="Score Distribution by Department")
-            st.plotly_chart(fig)
-        else: st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
-    else: st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+            df_all = pd.concat(all_results, ignore_index=True)
+            avg_dept = df_all.groupby("Department")["Score"].mean().reset_index()
+            fig1 = px.bar(avg_dept, x="Department", y="Score", title="Average Score by Department", text="Score")
+            st.plotly_chart(fig1, use_container_width=True)
+            avg_sub = df_all.groupby("Subject")["Score"].mean().reset_index()
+            fig2 = px.bar(avg_sub, x="Subject", y="Score", title="Average Score by Subject", text="Score")
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
+    else:
+        st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
