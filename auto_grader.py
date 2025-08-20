@@ -1,14 +1,13 @@
-# ---------- auto_grader.py (Fixed & Debug Version) ----------
+# ---------- auto_grader.py (Fixed & Updated MCQ + Semantic Grading) ----------
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer, util
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import re
 from PIL import Image  # if using OCR later
 
 # ---------- MCQ Helpers ----------
 def normalize_choice(answer):
+    """Normalize student answer to single capital letter A-E"""
     if not answer:
         return ""
     ans = str(answer).strip().upper()
@@ -19,11 +18,15 @@ def normalize_choice(answer):
     return ans
 
 def parse_mcq_answers(answer_text):
-    """Parse MCQ student answers line by line using normalize_choice"""
+    """Parse MCQ student answers line by line, ignore extra text/punctuation"""
     answers = []
     for line in answer_text.split("\n"):
-        if line.strip():
-            answers.append(normalize_choice(line))
+        line = line.strip()
+        if not line:
+            continue
+        # Remove numbering or punctuation (e.g., "1. A" -> "A")
+        line = re.sub(r'^\d+\s*[\.\)-]*\s*', '', line)
+        answers.append(normalize_choice(line))
     return answers
 
 def grade_mcq(teacher_key, student_answers):
@@ -37,12 +40,11 @@ def grade_mcq(teacher_key, student_answers):
             feedback.append(f"Q{i+1}: ✅ Correct")
         else:
             feedback.append(f"Q{i+1}: ❌ Incorrect (Expected {correct}, got {student})")
-    return score, feedback
+    return score, "\n".join(feedback)
 
-# ✅ Ensure Hugging Face cache is stored in a persistent folder on Streamlit Cloud
+# ---------- SBERT / Semantic Grading Setup ----------
 os.environ['HF_HOME'] = '/mount/src/.cache/huggingface'
 
-# ✅ Load SBERT model for semantic grading
 @st.cache_resource(show_spinner="🔍 Loading AI model for grading...")
 def load_sbert_model():
     try:
@@ -51,17 +53,18 @@ def load_sbert_model():
         return model
     except Exception as e:
         st.error(f"⚠️ Failed to load SBERT model: {str(e)}")
-        return None  # Fallback if model fails to load
+        return None
 
 sbert_model = load_sbert_model()
 
 # ---------- Essay / Semantic Grading Helpers ----------
 def clean_text(text):
     text = str(text).lower().strip()
-    text = re.sub(r'[^\w\s]', '', text)  # remove punctuation
+    text = re.sub(r'[^\w\s]', '', text)
     return text
 
 def parse_answer_key(key_text):
+    """Parse teacher's key into cleaned list"""
     key_text = key_text.strip()
     if "\n" in key_text:
         answers = [clean_text(a) for a in key_text.split("\n") if a.strip()]
@@ -70,6 +73,7 @@ def parse_answer_key(key_text):
     return answers
 
 def parse_essay_answers(answer_text):
+    """Parse student essay answers into cleaned list"""
     answer_text = answer_text.strip()
     if "\n" in answer_text:
         answers = [clean_text(a) for a in answer_text.split("\n") if a.strip()]
@@ -77,8 +81,8 @@ def parse_essay_answers(answer_text):
         answers = [clean_text(a) for a in answer_text.split(",") if a.strip()]
     return answers
 
-# ✅ Main grading function (essay / semantic)
 def grade_with_answer_key(answer_key_text, student_answer_text):
+    """Grade essay / semantic answers using SBERT"""
     teacher_answers = parse_answer_key(answer_key_text)
     student_answers = parse_essay_answers(student_answer_text)
 
@@ -89,16 +93,12 @@ def grade_with_answer_key(answer_key_text, student_answer_text):
     for i, correct_answer in enumerate(teacher_answers):
         if i < len(student_answers):
             student_ans = student_answers[i]
-
-            # For exact match
             if student_ans == correct_answer:
                 correct_count += 1
                 feedback_list.append(f"Q{i+1}: ✅ Correct")
             else:
-                # Semantic similarity
                 if sbert_model:
-                    score, _ = grade_answer_bert(correct_answer, student_ans)
-                    st.write(f"Debug: Q{i+1} similarity = {score}%")
+                    score, fb = grade_answer_bert(correct_answer, student_ans)
                     if score >= 80:
                         correct_count += 1
                         feedback_list.append(f"Q{i+1}: ⚠️ Partially Correct (Similarity: {score}%)")
@@ -112,12 +112,11 @@ def grade_with_answer_key(answer_key_text, student_answer_text):
     final_score = round((correct_count / total_questions) * 100, 2) if total_questions > 0 else 0
     return final_score, "\n".join(feedback_list)
 
-# ✅ BERT semantic grading function
 def grade_answer_bert(model_answer, student_answer):
+    """Compute semantic similarity score and provide feedback"""
     try:
         model_answer = clean_text(model_answer)
         student_answer = clean_text(student_answer)
-
         embeddings = sbert_model.encode([student_answer, model_answer], convert_to_tensor=True)
         similarity = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
         score = round(similarity * 100, 2)
