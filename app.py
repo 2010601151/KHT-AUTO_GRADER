@@ -7,7 +7,7 @@ from PIL import Image
 import pytesseract
 import os
 import hashlib
-from auto_grader import grade_with_answer_key
+from auto_grader import grade_with_answer_key, parse_mcq_answers, grade_mcq
 import plotly.express as px
 
 # ---------- App Config ----------
@@ -216,6 +216,7 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
         st.rerun()
+
 # ---------- Teacher/Admin Shared Page: Upload & Grade ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
@@ -269,7 +270,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
 
             # ---------- Grading ----------
             if mode == "Multiple Choice":
-                student_answers = parse_student_answers(student_answer)
+                student_answers = parse_mcq_answers(student_answer)
                 score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
             else:
                 score, feedback = grade_with_answer_key(model_answer, student_answer)
@@ -331,7 +332,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
 
                 # ---------- Grading ----------
                 if mode == "Multiple Choice":
-                    student_answers = parse_student_answers(student_answer)
+                    student_answers = parse_mcq_answers(student_answer)
                     score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
                 else:
                     score, feedback = grade_with_answer_key(model_answer, student_answer)
@@ -359,7 +360,6 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
                 df = pd.DataFrame(results)
             df.to_csv(save_path, index=False)
             st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
-
 
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
@@ -409,14 +409,3 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
-
