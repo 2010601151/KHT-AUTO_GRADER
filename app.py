@@ -216,149 +216,150 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         save_pending_teachers(pending_teachers)
         st.session_state.approve_teacher = None
         st.rerun()
+# ---------- Teacher/Admin Shared Page: Upload & Grade ----------
+if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
+    st.subheader("Upload & Grade Student Exam")
 
-# ---------- Teacher/Admin Shared Pages ----------
-if page=="📥 Upload Answer Key":
-    st.subheader("Upload Teacher Answer Key (Text or Image)")
-    key_file = st.file_uploader("Upload Answer Key", type=["txt","jpg","jpeg","png"])
+    # ---------- Select Section ----------
+    mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
+
+    department = st.text_input("Department", value="General").strip().replace("/", "-")
+    subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+
+    batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
+
+    # ---------- File Labels ----------
+    if mode == "Multiple Choice":
+        key_file_label = "Upload Teacher's MCQ Key"
+        student_file_label = "Upload Student MCQ Answers (scan or text)"
+    else:
+        key_file_label = "Upload Teacher's Essay Key"
+        student_file_label = "Upload Student Essay (scan or text)"
+
+    # ---------- Upload Answer Key ----------
+    st.markdown("### Upload Teacher Answer Key (Text or Image)")
+    key_file = st.file_uploader(key_file_label, type=["txt","jpg","jpeg","png"])
     if key_file:
-        if key_file.type.startswith("text"): key_text = key_file.read().decode("utf-8")
-        else: key_text = extract_text_from_image(Image.open(key_file))
-        save_answer_key(key_text)
-        st.markdown(f"<div class='ocr-box'><pre>{key_text}</pre></div>", unsafe_allow_html=True)
+        if key_file.type.startswith("text"): 
+            teacher_key = key_file.read().decode("utf-8").strip()
+        else: 
+            teacher_key = extract_text_from_image(Image.open(key_file))
+        save_answer_key(teacher_key)
+        st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
         st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
-        
-# ---------- Upload & Grade Student Exam ----------
-if page == "📤 Upload & Grade Student Exam":
-    st.subheader("Upload Student Exams for Grading (Single or Multiple)")
 
+    # Load model answer for grading
     model_answer = load_answer_key()
     if not model_answer:
         st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
+        st.stop()
+
+    # ---------- Single Student ----------
+    if not batch_mode:
+        student_name = st.text_input("Student Name")
+        student_id = st.text_input("Student ID")
+        student_file = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"])
+
+        if student_file and st.button("Grade Student"):
+            # Read student answer
+            if student_file.type.startswith("text"):
+                student_answer = student_file.read().decode("utf-8").strip()
+            else:
+                student_answer = extract_text_from_image(Image.open(student_file))
+
+            # ---------- Grading ----------
+            if mode == "Multiple Choice":
+                student_answers = parse_student_answers(student_answer)
+                score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+            else:
+                score, feedback = grade_with_answer_key(model_answer, student_answer)
+
+            st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
+            st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
+            for line in feedback.split("\n"):
+                cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
+
+            # ---------- Save Result ----------
+            result = {
+                "Student ID": student_id,
+                "Name": student_name,
+                "Department": department,
+                "Subject": subject,
+                "Answer": student_answer,
+                "Score": score,
+                "Feedback": feedback,
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+            except:
+                df = pd.DataFrame([result])
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
+
+    # ---------- Batch Grading ----------
     else:
-        st.markdown("<span style='font-weight: bold; color: black;'>Enable Batch Grading (Upload multiple files)</span>", unsafe_allow_html=True)
-        batch_mode = st.checkbox("", key="batch_mode_checkbox")
+        batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
+        if batch_files and st.button("Grade All Exams"):
+            results = []
+            for file in batch_files:
+                # ---------- Read student answer ----------
+                if file.type.startswith("text"):
+                    student_answer = file.read().decode("utf-8").strip()
+                else:
+                    student_answer = extract_text_from_image(Image.open(file))
 
-        department = st.text_input("Department", value="General").strip().replace("/", "-")
-        subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
+                # ---------- Auto-detect Name & ID ----------
+                student_name, student_id = "Unknown", "0000"
+                try:
+                    for line in student_answer.splitlines():
+                        line_clean = line.strip()
+                        if line_clean.lower().startswith("name:"):
+                            student_name = line_clean.split(":", 1)[1].strip()
+                        elif line_clean.lower().startswith("id:"):
+                            student_id = line_clean.split(":", 1)[1].strip()
+                    # Fallback: filename John_123.txt
+                    parts = os.path.splitext(file.name)[0].split("_")
+                    if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
+                        student_name, student_id = parts[0], parts[1]
+                except:
+                    pass
 
-        if not batch_mode:
-            # ---------- Single Student ----------
-            student_name = st.text_input("Student Name")
-            student_id = st.text_input("Student ID")
-            exam_file = st.file_uploader("Upload Student Exam (Image)", type=["jpg","png","jpeg"])
-            if exam_file:
-                image = Image.open(exam_file)
-                student_answer = extract_text_from_image(image)
-                st.markdown(f"<div class='ocr-box'><pre>{student_answer}</pre></div>", unsafe_allow_html=True)
-
-                if st.button("Grade Answer"):
-                    if not all([student_name, student_id, department, subject]):
-                        st.markdown("<p class='notification'>⚠️ Fill all student details before grading.</p>", unsafe_allow_html=True)
-                    else:
-                        score, feedback = grade_with_answer_key(model_answer, student_answer)
-                        st.markdown(f"<p class='notification'>Final Score: {score}%</p>", unsafe_allow_html=True)
-                        st.markdown("<p class='notification'>Detailed Feedback below:</p>", unsafe_allow_html=True)
-                        for line in feedback.split("\n"):
-                            cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
-                            st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
-
-                        # Save result
-                        result = {
-                            "Student ID": student_id,
-                            "Name": student_name,
-                            "Department": department,
-                            "Subject": subject,
-                            "Answer": student_answer,
-                            "Score": score,
-                            "Feedback": feedback,
-                            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-                        save_path = f"results/{department}/{subject}/results.csv"
-                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                        try:
-                            df = pd.read_csv(save_path)
-                            df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-                        except:
-                            df = pd.DataFrame([result])
-                        df.to_csv(save_path, index=False)
-                        st.markdown("<p class='notification'>Result saved to dashboard!</p>", unsafe_allow_html=True)
-
-        else:
-            # ---------- BATCH MODE ----------
-            batch_files = st.file_uploader(
-                "Upload Multiple Exams (Images)",
-                type=["jpg","png","jpeg"],
-                accept_multiple_files=True
-            )
-
-            # Preview uploaded files with OCR snippets
-            if batch_files:
-                st.markdown("### 📂 Files Selected (with OCR preview):")
-                for file in batch_files:
-                    st.markdown(f"- **{file.name}**")
-                    image = Image.open(file)
-                    student_answer = extract_text_from_image(image)
-
-                    # Short snippet
-                    snippet = student_answer[:150] + "..." if len(student_answer) > 150 else student_answer
-                    st.markdown(f"<div class='ocr-box'><pre>{snippet}</pre></div>", unsafe_allow_html=True)
-
-                    # Expandable full OCR text
-                    with st.expander(f"🔎 View Full OCR for {file.name}"):
-                        st.text_area("OCR Extracted Answer", student_answer, height=200)
-
-            # Grade all exams in batch
-            if batch_files and st.button("Grade All Exams"):
-                results = []
-                for file in batch_files:
-                    image = Image.open(file)
-                    student_answer = extract_text_from_image(image)
-
-                    # ---------- Auto-detect Name & ID ----------
-                    student_name, student_id = "Unknown", "0000"
-                    try:
-                        for line in student_answer.splitlines():
-                            line_clean = line.strip()
-                            if line_clean.lower().startswith("name:"):
-                                student_name = line_clean.split(":", 1)[1].strip()
-                            elif line_clean.lower().startswith("id:"):
-                                student_id = line_clean.split(":", 1)[1].strip()
-
-                        # Fallback: filename John_123.jpg
-                        parts = os.path.splitext(file.name)[0].split("_")
-                        if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
-                            student_name, student_id = parts[0], parts[1]
-                    except:
-                        pass
-                    # ---------- End Auto-detect ----------
-
-                    # ✅ Grade the student answer
+                # ---------- Grading ----------
+                if mode == "Multiple Choice":
+                    student_answers = parse_student_answers(student_answer)
+                    score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+                else:
                     score, feedback = grade_with_answer_key(model_answer, student_answer)
 
-                    results.append({
-                        "Student ID": student_id,
-                        "Name": student_name,
-                        "Department": department,
-                        "Subject": subject,
-                        "Answer": student_answer,
-                        "Score": score,
-                        "Feedback": feedback,
-                        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
+                results.append({
+                    "Student ID": student_id,
+                    "Name": student_name,
+                    "Department": department,
+                    "Subject": subject,
+                    "Answer": student_answer,
+                    "Score": score,
+                    "Feedback": feedback,
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
 
-                    st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}%</p>", unsafe_allow_html=True)
+                st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
 
-                # Save results
-                save_path = f"results/{department}/{subject}/results.csv"
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                try:
-                    df = pd.read_csv(save_path)
-                    df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
-                except:
-                    df = pd.DataFrame(results)
-                df.to_csv(save_path, index=False)
-                st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+            # ---------- Save all results ----------
+            save_path = f"results/{department}/{subject}/results.csv"
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            try:
+                df = pd.read_csv(save_path)
+                df = pd.concat([df, pd.DataFrame(results)], ignore_index=True)
+            except:
+                df = pd.DataFrame(results)
+            df.to_csv(save_path, index=False)
+            st.markdown("<p class='notification'>All batch results saved successfully!</p>", unsafe_allow_html=True)
+
 
 # ---------- Teacher Dashboard ----------
 if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
@@ -408,6 +409,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
