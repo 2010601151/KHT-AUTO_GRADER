@@ -1,4 +1,4 @@
-# ---------- app.py (Fully Fixed & Complete KHT AI Auto-Grader) ----------
+# ---------- app.py (Fully Professional KHT AI Auto-Grader) ----------
 import streamlit as st
 import json
 import pandas as pd
@@ -185,7 +185,8 @@ else:
         "📤 Upload & Grade Student Exam",
         "🔍 Search Results (ID or Name)",
         "📊 View Dashboard",
-        "📈 Analytics"
+        "📈 Analytics",
+        "🖊️ Teacher Help Grading"
     ])
 
 # ---------- Admin Dashboard ----------
@@ -220,7 +221,7 @@ if page=="📊 Admin Dashboard" and st.session_state.role=="Admin":
         st.session_state.approve_teacher=None
         st.rerun()
 
-# ---------- Teacher/Admin Shared Page: Upload & Grade ----------
+# ---------- Shared Upload & Grade ----------
 if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
     st.subheader("Upload & Grade Student Exam")
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
@@ -285,7 +286,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             df.to_csv(save_path, index=False)
             st.success("✅ Result saved successfully!")
 
-    # ---------- Batch Grading ----------
+## ---------- Batch Grading ----------
     else:
         batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
         if batch_files and st.button("Grade All Exams"):
@@ -374,3 +375,22 @@ if page=="📊 View Dashboard" and st.session_state.role=="Teacher":
         st.markdown(f"**Average Score:** {avg_score:.2f}")
         fig=px.pie(df,names="Score",title="Score Distribution")
         st.plotly_chart(fig,use_container_width=True)
+
+# ---------- Teacher Help Grading (Optional AI Assistant) ----------
+if page=="🖊️ Teacher Help Grading" and st.session_state.role=="Teacher":
+    st.subheader("🖊️ Teacher Help Grading (Optional AI Assistance)")
+    essay_file = st.file_uploader("Upload Essay File for Help Grading", type=["txt","jpg","jpeg","png"])
+    if essay_file:
+        essay_text = essay_file.read().decode("utf-8").strip() if essay_file.type.startswith("text") else extract_text_from_image(Image.open(essay_file))
+        st.markdown(f"<div class='ocr-box'><pre>{essay_text}</pre></div>", unsafe_allow_html=True)
+        if st.button("Grade with AI Help"):
+            model_answer = load_answer_key()
+            if not model_answer:
+                st.warning("⚠️ Please upload the answer key first.")
+            else:
+                score, feedback = grade_with_answer_key(model_answer, essay_text)
+                st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
+                st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
+                for line in feedback.split("\n"):
+                    cls = "feedback-correct" if "✅" in line else "feedback-partial" if "⚠️" in line else "feedback-wrong" if "❌" in line else ""
+                    st.markdown(f"<span class='{cls}'>{line}</span>", unsafe_allow_html=True)
