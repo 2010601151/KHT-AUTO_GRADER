@@ -16,7 +16,7 @@ st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 # ---------- CSS Styling ----------
 st.markdown("""
 <style>
-.stApp { background-color:#ffffff; color:#a9a9a9!important; }
+.stApp { background-color:#ffffff; color:#A9A9A9!important; }
 section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
 section[data-testid="stSidebar"] * { color:#ffffff !important; }
 .login-card { background-color:#ffffff; color:#000000 !important; padding: 1.5rem; border-radius: 10px;
@@ -385,6 +385,7 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
 
 
