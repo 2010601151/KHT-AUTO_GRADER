@@ -30,12 +30,12 @@ animation: fadeIn 0.6s ease-in-out; }
 h1,h2,h3,h4,h5,h6 { color: #000000 !important; font-weight:bold; }
 div.stButton > button { background-color:#6a1b9a; color:black !important; font-weight:bold; border:none; border-radius:5px; padding:0.4em 1em; }
 div.stButton > button:hover { background-color:#ffffff; color:black !important; }
-input,textarea,select { border:1px solid #6a1b9a !important; color:#ffffff !important; font-weight:bold; }
+input,textarea,select { border:1px solid #ffffff !important; color:#ffffff !important; font-weight:bold; }
 label,.stFileUploader label { color:#ffffff !important; font-weight:bold; }
 table { border:2px solid #6a1b9a !important; border-collapse:collapse !important; color:#000000 !important; }
 thead tr th { background-color:#6a1b9a !important; color:black !important; font-weight:bold !important; }
 tbody tr:nth-child(odd) { background-color:#f3e5f5 !important; }
-tbody tr:nth-child(even) { background-color:#ffffff !important; }
+tbody tr:nth-child(even) { background-color:#000000 !important; }
 tbody tr td { color:#000000 !important; font-weight:500 !important; border:1px solid #ddd !important; }
 .ocr-box { background-color:#f7f7f7; color:#000000 !important; border:1px solid #ccc; padding:10px; border-radius:5px; max-height:300px; overflow:auto; font-size:14px; }
 .feedback-correct { background-color:#28a745; color:black !important; font-weight:bold; padding:2px 4px; border-radius:3px; }
@@ -385,4 +385,5 @@ if page=="📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
 
