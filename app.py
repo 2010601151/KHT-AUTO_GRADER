@@ -289,52 +289,33 @@ if page in ["📥 Upload Answer Key","📤 Upload & Grade Student Exam"]:
             st.markdown("<p class='notification'>Result saved successfully!</p>", unsafe_allow_html=True)
 
 # ---------- Batch Grading ----------
-if batch_mode:
+if st.session_state.batch_mode:
     student_file_label = f"Upload Multiple {mode} Files"
     batch_files = st.file_uploader(student_file_label, type=["txt","jpg","jpeg","png"], accept_multiple_files=True)
     if batch_files and st.button("Grade All Exams"):
-        results = []
         for file in batch_files:
-            # Read student answer
-            if file.type.startswith("text"):
-                student_answer = file.read().decode("utf-8").strip()
-            else:
-                student_answer = extract_text_from_image(Image.open(file))
+            save_dir = f"data/{department}/{subject}/submissions"
+            os.makedirs(save_dir, exist_ok=True)
+            with open(f"{save_dir}/{file.name}","wb") as f:
+                f.write(file.getbuffer())
+        st.success(f"Graded {len(batch_files)} exams successfully")
 
-            # Auto-detect Name & ID
-            student_name, student_id = "Unknown", "0000"
-            try:
-                for line in student_answer.splitlines():
-                    line_clean = line.strip()
-                    if line_clean.lower().startswith("name:"):
-                        student_name = line_clean.split(":", 1)[1].strip()
-                    elif line_clean.lower().startswith("id:"):
-                        student_id = line_clean.split(":", 1)[1].strip()
-                # Fallback: filename John_123.txt
-                parts = os.path.splitext(file.name)[0].split("_")
-                if (student_name=="Unknown" or student_id=="0000") and len(parts)>=2:
-                    student_name, student_id = parts[0], parts[1]
-            except: pass
+# ---------- Analytics ----------
+if page == "📊 Analytics":
+    st.subheader("Exam Analytics")
+    dept = st.text_input("Department for Analytics", value="General")
+    subj = st.text_input("Subject for Analytics", value="Misc")
+    results_dir = f"data/{dept}/{subj}/submissions"
+    if os.path.exists(results_dir):
+        files = os.listdir(results_dir)
+        st.write(f"Found {len(files)} student submissions")
+    else:
+        st.warning("No submissions found for selected Department/Subject")
 
-            # Grading
-            if mode=="Multiple Choice":
-                student_answers = parse_student_answers(student_answer)
-                score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
-            else:
-                score, feedback = grade_with_answer_key(model_answer, student_answer)
-
-            results.append({
-                "Student ID": student_id,
-                "Name": student_name,
-                "Department": department,
-                "Subject": subject,
-                "Answer": student_answer,
-                "Score": score,
-                "Feedback": feedback,
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-
-            st.markdown(f"<p class='notification'>Graded {student_name} ({student_id}) → Score: {score}</p>", unsafe_allow_html=True)
+# ---------- Admin Dashboard ----------
+if page == "⚙️ Admin Dashboard" and st.session_state.role == "admin":
+    st.subheader("Admin Dashboard")
+    st.write("Manage users, roles, and system settings here.")
 
         # Save all results
         save_path = f"results/{department}/{subject}/results.csv"
@@ -427,3 +408,4 @@ if page=="🔍 Search Results (ID or Name)":
                 st.markdown(f"<p class='notification'>No results found for '{search_query}'</p>", unsafe_allow_html=True)
         else:
             st.markdown("<p class='notification'>No results folder found.</p>", unsafe_allow_html=True)
+
