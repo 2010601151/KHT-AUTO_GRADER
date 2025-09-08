@@ -35,18 +35,77 @@ ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 # =============================
 st.markdown("""
 <style>
-.stApp { background-color:#ffffff; color: #000000 !important; }
-section[data-testid="stSidebar"] { background-color: #4a0072; padding-top: 2rem; }
-section[data-testid="stSidebar"] * { color:#ffffff !important; }
-.login-card { background-color:#ffffff; color:#000000 !important; padding: 1.25rem; border-radius: 10px;
-box-shadow: 0px 6px 18px rgba(0,0,0,0.12); max-width: 320px; margin: 1.5rem auto; }
-.notification { color:black; font-weight:600; font-size:15px; padding:6px 10px; border-radius:6px; }
-.ocr-box { background:#f7f7f7; padding:10px; border-radius:6px; max-height:300px; overflow:auto; font-size:14px; }
-.feedback-correct { background-color:#28a745; color:black; font-weight:700; padding:3px 6px; border-radius:4px; }
-.feedback-partial { background-color:#ffc107; color:black; font-weight:700; padding:3px 6px; border-radius:4px; }
-.feedback-wrong { background-color:#dc3545; color:black; font-weight:700; padding:3px 6px; border-radius:4px; }
+.stApp { 
+    background-color:#ffffff; 
+    color:#000000 !important; 
+}
+section[data-testid="stSidebar"] { 
+    background-color: #4a0072; 
+    padding-top: 2rem; 
+}
+section[data-testid="stSidebar"] * { 
+    color:#ffffff !important; 
+}
+.login-card { 
+    background-color:#ffffff; 
+    color:#000000 !important; 
+    padding: 1.25rem; 
+    border-radius: 10px;
+    box-shadow: 0px 6px 18px rgba(0,0,0,0.12); 
+    max-width: 320px; 
+    margin: 1.5rem auto; 
+}
+.notification { 
+    color:black; 
+    font-weight:600; 
+    font-size:15px; 
+    padding:6px 10px; 
+    border-radius:6px; 
+}
+.ocr-box { 
+    background:#f7f7f7; 
+    padding:10px; 
+    border-radius:6px; 
+    max-height:300px; 
+    overflow:auto; 
+    font-size:14px; 
+}
+.feedback-correct { 
+    background-color:#28a745; 
+    color:black; 
+    font-weight:700; 
+    padding:3px 6px; 
+    border-radius:4px; 
+}
+.feedback-partial { 
+    background-color:#ffc107; 
+    color:black; 
+    font-weight:700; 
+    padding:3px 6px; 
+    border-radius:4px; 
+}
+.feedback-wrong { 
+    background-color:#dc3545; 
+    color:black; 
+    font-weight:700; 
+    padding:3px 6px; 
+    border-radius:4px; 
+}
+
+/* ✅ Make ALL buttons purple with white text */
+div.stButton > button {
+    background-color:#6a1b9a !important; /* purple */
+    color:#ffffff !important;            /* white text */
+    font-weight:bold;
+    border:none;
+    border-radius:6px;
+    padding:0.5em 1em;
+}
+div.stButton > button:hover {
+    background-color:#4a0072 !important; /* darker purple on hover */
+    color:#ffffff !important;
+}
 </style>
-""", unsafe_allow_html=True)
 
 # =============================
 # App Header
@@ -509,3 +568,4 @@ if page == "📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
