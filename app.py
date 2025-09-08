@@ -35,10 +35,17 @@ ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 # =============================
 st.markdown("""
 <style>
+/* =======================
+   App Background & Text
+   ======================= */
 .stApp { 
     background-color:#ffffff; 
     color:#000000 !important; 
 }
+
+/* =======================
+   Sidebar
+   ======================= */
 section[data-testid="stSidebar"] { 
     background-color: #4a0072; 
     padding-top: 2rem; 
@@ -46,6 +53,10 @@ section[data-testid="stSidebar"] {
 section[data-testid="stSidebar"] * { 
     color:#ffffff !important; 
 }
+
+/* =======================
+   Login Card
+   ======================= */
 .login-card { 
     background-color:#ffffff; 
     color:#000000 !important; 
@@ -55,6 +66,10 @@ section[data-testid="stSidebar"] * {
     max-width: 320px; 
     margin: 1.5rem auto; 
 }
+
+/* =======================
+   Notifications & OCR box
+   ======================= */
 .notification { 
     color:black; 
     font-weight:600; 
@@ -70,6 +85,10 @@ section[data-testid="stSidebar"] * {
     overflow:auto; 
     font-size:14px; 
 }
+
+/* =======================
+   Feedback Labels
+   ======================= */
 .feedback-correct { 
     background-color:#28a745; 
     color:black; 
@@ -92,7 +111,9 @@ section[data-testid="stSidebar"] * {
     border-radius:4px; 
 }
 
-/* ✅ Make ALL buttons purple with white text */
+/* =======================
+   Global Button Styling
+   ======================= */
 div.stButton > button {
     background-color:#6a1b9a !important; /* purple */
     color:#ffffff !important;            /* white text */
@@ -100,12 +121,80 @@ div.stButton > button {
     border:none;
     border-radius:6px;
     padding:0.5em 1em;
+    transition: all 0.2s ease-in-out;
 }
 div.stButton > button:hover {
     background-color:#4a0072 !important; /* darker purple on hover */
     color:#ffffff !important;
+    transform: scale(1.02);
+}
+
+/* =======================
+   Sidebar Toggle Chevron
+   ======================= */
+button[kind="header"] {
+    background-color:#6a1b9a !important; /* purple background */
+    color:#ffffff !important;            /* white arrow */
+    border:none !important;
+    border-radius:6px !important;
+    transition: all 0.2s ease-in-out;
+}
+button[kind="header"]:hover {
+    background-color:#4a0072 !important; /* darker purple on hover */
+    color:#ffffff !important;
+    transform: scale(1.05);
+}
+
+/* =======================
+   File Uploader Button
+   ======================= */
+[data-testid="stFileUploader"] section > button {
+    background-color:#6a1b9a !important; /* purple */
+    color:#ffffff !important;            /* white text */
+    font-weight:bold;
+    border:none;
+    border-radius:6px;
+    padding:0.5em 1em;
+    transition: all 0.2s ease-in-out;
+}
+[data-testid="stFileUploader"] section > button:hover {
+    background-color:#4a0072 !important; /* darker purple */
+    color:#ffffff !important;
+    transform: scale(1.02);
+}
+
+/* =======================
+   Radio Buttons & Checkboxes
+   ======================= */
+div[role="radiogroup"] label > div[data-baseweb="radio"] > div {
+    border-color: #6a1b9a !important;
+}
+div[role="radiogroup"] input:checked + div > div {
+    background-color: #6a1b9a !important;
+    border-color: #6a1b9a !important;
+}
+div[data-baseweb="checkbox"] > label > span[data-baseweb="checkbox"] {
+    border-color: #6a1b9a !important;
+}
+div[data-baseweb="checkbox"] input:checked + span[data-baseweb="checkbox"] {
+    background-color: #6a1b9a !important;
+    border-color: #6a1b9a !important;
+}
+
+/* =======================
+   Selectboxes / Dropdowns
+   ======================= */
+div[data-baseweb="select"] > div > div {
+    border-color: #6a1b9a !important;
+}
+div[data-baseweb="select"] div[data-baseweb="option"]:hover,
+div[data-baseweb="select"] div[data-baseweb="option"][aria-selected="true"] {
+    background-color: #6a1b9a !important;
+    color: #ffffff !important;
 }
 </style>
+
+""", unsafe_allow_html=True)
 
 # =============================
 # App Header
@@ -568,4 +657,3 @@ if page == "📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
-
