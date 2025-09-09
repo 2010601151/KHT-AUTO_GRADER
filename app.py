@@ -1,5 +1,5 @@
 # === app_professional.py ===
-# Polished KHT AI Auto-Grader (preserves original behavior; improved structure & helpers)
+# Polished KHT AI Auto-Grader (merged answer key & student grading into one page)
 import os
 import re
 import json
@@ -12,11 +12,11 @@ import plotly.express as px
 from PIL import Image
 import pytesseract
 
-# optional essay grader imported from your module (keeps original behavior)
+# optional essay grader imported from your module
 try:
     from auto_grader import grade_with_answer_key
 except Exception:
-    # If unavailable, provide a placeholder that returns neutral feedback
+    # placeholder if unavailable
     def grade_with_answer_key(model, student_text):
         return 0, "⚠️ Essay grading module not available."
 
@@ -25,13 +25,12 @@ except Exception:
 # =============================
 st.set_page_config(page_title="KHT AI Auto-Grader", layout="wide")
 
-# Secure-ish admin password: read from env var if present, else fallback to test default
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 ADMIN_PASSWORD_HASH = hashlib.sha256(ADMIN_PASSWORD.encode()).hexdigest()
 
 # =============================
-# Minimal CSS (kept visually similar)
+# Minimal CSS
 # =============================
 st.markdown("""
 <style>
@@ -192,8 +191,33 @@ div[data-baseweb="select"] div[data-baseweb="option"][aria-selected="true"] {
     background-color: #6a1b9a !important;
     color: #ffffff !important;
 }
-</style>
+/* Fix text visibility inside selectboxes */
+div[data-baseweb="select"] * {
+    color: #000000 !important;   /* black text */
+    background-color: #ffffff;   /* white background */
+}
 
+/* =======================
+   Input Fields (Text, Password, etc.)
+   ======================= */
+input[type="text"], 
+input[type="password"], 
+textarea {
+    background-color: #ffffff !important; /* white background */
+    color: #000000 !important;            /* black text */
+    border: 1px solid #ccc !important;    /* light gray border */
+    border-radius: 6px !important;
+    padding: 0.5em;
+    font-size: 14px;
+}
+input[type="text"]:focus, 
+input[type="password"]:focus, 
+textarea:focus {
+    border-color: #6a1b9a !important;     /* purple border on focus */
+    outline: none !important;
+    box-shadow: 0 0 4px rgba(106, 27, 154, 0.5);
+}
+</style>
 """, unsafe_allow_html=True)
 
 # =============================
@@ -262,73 +286,49 @@ def color_rows(val: float) -> str:
 # MCQ Parsing & Grading Helpers
 # =============================
 def parse_student_answers(text: str) -> dict:
-    """
-    Convert OCR/text answers into {qnum: answer}.
-    Handles:
-      - Numbered lines: "1. A", "2) B", "3: C"
-      - Single-line tokens: "A B C D" -> mapped to 1..n
-      - Fallback: return {1: raw_text}
-    """
     text = (text or "").strip()
     if not text:
         return {}
-
     qdict = {}
     lines = [ln.strip() for ln in re.split(r'[\r\n]+', text) if ln.strip()]
     number_answer_pattern = re.compile(r'^\s*(\d{1,3})\s*[\.\:\)\-]?\s*([A-Za-z0-9]+)\s*$')
-
     for ln in lines:
         m = number_answer_pattern.match(ln)
         if m:
             qdict[int(m.group(1))] = m.group(2).upper().strip()
-
     if qdict:
         return qdict
-
     tokens = re.split(r'[\s,;]+', text)
     tokens = [t.strip() for t in tokens if t.strip()]
     if len(tokens) > 1 and all(re.match(r'^[A-Za-z0-9]$', t) for t in tokens):
         return {i+1: tokens[i].upper() for i in range(len(tokens))}
-
     pairs = re.findall(r'(\d{1,3})\s*[:\.\)\-]?\s*([A-Za-z0-9])', text)
     if pairs:
         return {int(q): a.upper() for q, a in pairs}
-
     return {1: text.strip()}
 
 def grade_mcq(model_lines: list, student_answers) -> tuple:
-    """
-    Grade MCQ answers against model lines (list of strings).
-    Returns (score_percent, feedback_text)
-    """
     pattern = re.compile(r'^\s*(\d{1,3})\s*[\.\:\)\-]?\s*([A-Za-z0-9]+)\s*$')
     model_key = {}
-
     lines = [ln.strip() for ln in model_lines if ln and ln.strip()]
     for ln in lines:
         m = pattern.match(ln)
         if m:
             model_key[int(m.group(1))] = m.group(2).upper().strip()
-
     if not model_key:
-        # maybe the model is single-line tokens (A B C D)
         tokens = []
         for ln in lines:
             tokens += re.split(r'[\s,;]+', ln)
         tokens = [t for t in tokens if t.strip()]
         if tokens:
             model_key = {i+1: tokens[i].upper() for i in range(len(tokens))}
-
     if not model_key:
         return 0, "❌ Unable to parse model answer key."
-
     if not isinstance(student_answers, dict):
         student_answers = parse_student_answers(student_answers)
-
     total = len(model_key)
     correct = 0
     feedback = []
-
     for q in sorted(model_key.keys()):
         correct_answer = model_key[q]
         s_ans = student_answers.get(q, "").upper().strip()
@@ -339,7 +339,6 @@ def grade_mcq(model_lines: list, student_answers) -> tuple:
             feedback.append(f"Q{q}: ✅ {s_ans} (Correct)")
         else:
             feedback.append(f"Q{q}: ❌ {s_ans} (Correct: {correct_answer})")
-
     score_pct = round((correct / total) * 100, 2) if total else 0.0
     return score_pct, "\n".join(feedback)
 
@@ -410,19 +409,19 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.role = None
     st.rerun()
 
-# Navigation pages (different for Admin vs Teacher)
+# =============================
+# Navigation pages
+# =============================
 if st.session_state.role == "Admin":
     page = st.sidebar.selectbox("📂 Select Page", [
         "📊 Admin Dashboard",
-        "📥 Upload Answer Key",
-        "📤 Upload & Grade Student Exam",
+        "📘 Answer Key & Student Grading",
         "🔍 Search Results (ID or Name)",
         "📈 Analytics"
     ])
 elif st.session_state.role == "Teacher":
     page = st.sidebar.selectbox("📂 Select Page", [
-        "📥 Upload Answer Key",
-        "📤 Upload & Grade Student Exam",
+        "📘 Answer Key & Student Grading",
         "🔍 Search Results (ID or Name)",
         "📊 View Dashboard",
         "📈 Analytics"
@@ -445,7 +444,6 @@ if page == "📊 Admin Dashboard" and st.session_state.role == "Admin":
         if col3.button("Remove", key=f"remove_{username}"):
             st.session_state.remove_teacher = username
 
-    # remove action
     if st.session_state.remove_teacher:
         rm = st.session_state.remove_teacher
         if rm in teachers:
@@ -473,25 +471,22 @@ if page == "📊 Admin Dashboard" and st.session_state.role == "Admin":
         st.rerun()
 
 # =============================
-# Upload & Grade (Shared)
+# Answer Key & Student Grading
 # =============================
-if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
-    st.subheader("Upload & Grade Student Exam")
+if page == "📘 Answer Key & Student Grading":
+    st.subheader("📄 Answer Key & Student Grading")
 
     mode = st.radio("Select Exam Section", ["Multiple Choice", "Essay"])
     department = st.text_input("Department", value="General").strip().replace("/", "-")
     subject = st.text_input("Subject", value="Misc").strip().replace("/", "-")
     batch_mode = st.checkbox("Enable Batch Grading (Upload multiple files)")
 
-    if mode == "Multiple Choice":
-        key_file_label = "Upload Teacher's MCQ Key"
-        student_file_label = "Upload Student MCQ Answers (scan or text)"
-    else:
-        key_file_label = "Upload Teacher's Essay Key"
-        student_file_label = "Upload Student Essay (scan or text)"
-
-    st.markdown("### Upload Teacher Answer Key (Text or Image)")
-    key_file = st.file_uploader(key_file_label, type=["txt", "jpg", "jpeg", "png"])
+    # --- Upload / Show Teacher Answer Key ---
+    st.markdown("### 📝 Teacher Answer Key")
+    key_file = st.file_uploader(
+        "Upload Teacher Answer Key (Text or Image)",
+        type=["txt", "jpg", "jpeg", "png"]
+    )
     if key_file:
         if key_file.type.startswith("text"):
             teacher_key = key_file.read().decode("utf-8").strip()
@@ -499,31 +494,35 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             teacher_key = extract_text_from_image(Image.open(key_file))
         save_answer_key(teacher_key)
         st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
-        st.markdown("<p class='notification'>Answer Key saved successfully!</p>", unsafe_allow_html=True)
+    else:
+        teacher_key = load_answer_key()
+        if teacher_key:
+            st.markdown(f"<div class='ocr-box'><pre>{teacher_key}</pre></div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<p class='notification'>⚠️ No answer key uploaded yet.</p>", unsafe_allow_html=True)
+            st.stop()
 
-    model_answer = load_answer_key()
-    if not model_answer:
-        st.markdown("<p class='notification'>⚠️ Please upload the answer key first.</p>", unsafe_allow_html=True)
-        st.stop()
-
-    # Single student grading
+    # --- Upload & Grade Student Answers ---
+    st.markdown("### 👩‍🎓 Student Exam Upload")
     if not batch_mode:
         student_name = st.text_input("Student Name")
         student_id = st.text_input("Student ID")
-        student_file = st.file_uploader(student_file_label, type=["txt", "jpg", "jpeg", "png"])
-
+        student_file = st.file_uploader("Upload Student Exam (Text or Image)", type=["txt", "jpg", "jpeg", "png"])
+        
         if student_file and st.button("Grade Student"):
             if student_file.type.startswith("text"):
                 student_answer = student_file.read().decode("utf-8").strip()
             else:
                 student_answer = extract_text_from_image(Image.open(student_file))
 
+            # Grade
             if mode == "Multiple Choice":
                 student_answers = parse_student_answers(student_answer)
-                score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+                score, feedback = grade_mcq(teacher_key.splitlines(), student_answers)
             else:
-                score, feedback = grade_with_answer_key(model_answer, student_answer)
+                score, feedback = grade_with_answer_key(teacher_key, student_answer)
 
+            # Show results
             st.markdown(f"<p class='notification'>Score: {score}</p>", unsafe_allow_html=True)
             st.markdown("<p class='notification'>Detailed Feedback:</p>", unsafe_allow_html=True)
             for line in feedback.split("\n"):
@@ -551,7 +550,6 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             df.to_csv(save_path, index=False)
             st.success("Result saved successfully!")
 
-    # Batch grading
     else:
         batch_files = st.file_uploader(f"Upload Multiple {mode} Files", type=["txt", "jpg", "jpeg", "png"], accept_multiple_files=True)
         if batch_files and st.button("Grade All Exams"):
@@ -563,24 +561,21 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
                     student_answer = extract_text_from_image(Image.open(file))
 
                 student_name, student_id = "Unknown", "0000"
-                try:
-                    for line in student_answer.splitlines():
-                        lc = line.strip()
-                        if lc.lower().startswith("name:"):
-                            student_name = lc.split(":", 1)[1].strip()
-                        elif lc.lower().startswith("id:"):
-                            student_id = lc.split(":", 1)[1].strip()
-                    parts = os.path.splitext(file.name)[0].split("_")
-                    if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
-                        student_name, student_id = parts[0], parts[1]
-                except Exception:
-                    pass
+                for line in student_answer.splitlines():
+                    lc = line.strip()
+                    if lc.lower().startswith("name:"):
+                        student_name = lc.split(":", 1)[1].strip()
+                    elif lc.lower().startswith("id:"):
+                        student_id = lc.split(":", 1)[1].strip()
+                parts = os.path.splitext(file.name)[0].split("_")
+                if (student_name == "Unknown" or student_id == "0000") and len(parts) >= 2:
+                    student_name, student_id = parts[0], parts[1]
 
                 if mode == "Multiple Choice":
                     student_answers = parse_student_answers(student_answer)
-                    score, feedback = grade_mcq(model_answer.splitlines(), student_answers)
+                    score, feedback = grade_mcq(teacher_key.splitlines(), student_answers)
                 else:
-                    score, feedback = grade_with_answer_key(model_answer, student_answer)
+                    score, feedback = grade_with_answer_key(teacher_key, student_answer)
 
                 results.append({
                     "Student ID": student_id or "Unknown",
@@ -605,7 +600,7 @@ if page in ["📥 Upload Answer Key", "📤 Upload & Grade Student Exam"]:
             df.to_csv(save_path, index=False)
             st.success("All batch results saved successfully!")
 
-# =============================
+            # =============================
 # Teacher Dashboard (View)
 # =============================
 if page == "📊 View Dashboard" and st.session_state.role == "Teacher":
@@ -657,3 +652,4 @@ if page == "📈 Analytics":
             st.markdown("<p class='notification'>No results found for analytics.</p>", unsafe_allow_html=True)
     else:
         st.markdown("<p class='notification'>No results folder found for analytics.</p>", unsafe_allow_html=True)
+
